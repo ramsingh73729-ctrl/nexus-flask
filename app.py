@@ -61,7 +61,23 @@ def health():
 
 @app.get("/api/games")
 def games():
-    return jsonify(games=GAMES)
+    return jsonify(games=GAMES)@app.route("/api/login", methods=["POST"])
+def login():
+    data = request.get_json(silent=True) or {}
+
+    email = data.get("email", "").strip().lower()
+    password = data.get("password", "")
+
+    if email == "demo@nexus.test" and password == "Nexus@123":
+        return jsonify({
+            "ok": True,
+            "message": "Welcome back, Nexus Player."
+        })
+
+    return jsonify({
+        "ok": False,
+        "message": "Invalid email or password."
+    }), 401
 
 
 @app.post("/api/contact")
