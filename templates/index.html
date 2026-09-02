@@ -1,88 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#070912" />
+    <meta name="description" content="Nexus is a living arcade for the next generation of games, players, and communities." />
+    <title>NEXUS — Play the edge</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div class="site-shell" id="top">
+      <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div><div class="grain"></div>
+      <header class="nav-wrap">
+        <nav class="nav container" aria-label="Primary navigation">
+          <a class="logo" href="#top" aria-label="Nexus home"><span class="logo-mark"><i></i><i></i><i></i></span><span>NEXUS<span class="logo-muted"> // PLAY</span></span></a>
+          <div class="nav-links" id="nav-links"><a href="#games">Games</a><a href="#community">Community</a><a href="#events">Events <span class="nav-dot"></span></a></div>
+          <div class="nav-actions"><button class="login-button" type="button">Log in</button><a class="button button-small button-outline" href="#download">Download <span>↗</span></a><button class="menu-toggle" type="button" aria-label="Open menu" aria-expanded="false"><span></span><span></span></button></div>
+        </nav>
+      </header>
 
+      <main>
+        <section class="hero container">
+          <div class="hero-copy">
+            <p class="eyebrow"><span class="eyebrow-line"></span> The living arcade / season 09</p>
+            <h1>Play the<br /><span>edge.</span></h1>
+            <p class="hero-text">A living arcade for the next generation of games, players, and communities.</p>
+            <div class="hero-actions"><a class="button button-primary" href="#games">Explore games <span>↗</span></a><button class="button button-ghost trailer-button" type="button"><span class="play-icon">▶</span> Watch trailer</button></div>
+            <div class="hero-proof"><div class="avatar-stack" aria-hidden="true"><span class="avatar avatar-a">K</span><span class="avatar avatar-b">M</span><span class="avatar avatar-c">S</span><span class="avatar avatar-d">+</span></div><span><strong>86,402</strong> players online now</span></div>
+          </div>
+          <div class="hero-visual" aria-label="Abstract 3D Nexus core">
+            <div class="hero-orbit orbit-a"></div><div class="hero-orbit orbit-b"></div>
+            <div class="hero-core"><div class="core-face core-front"><small>NX / 09</small><strong>N</strong><span>NO LIMITS / NO LAG</span></div><div class="core-face core-side"></div><div class="core-face core-top"></div></div>
+            <div class="floating-chip chip-one"><i></i> LIVE / 24.8K</div><div class="floating-chip chip-two">▦ 4 NEW DROPS</div><span class="visual-index">01 <b>/</b> 04</span>
+          </div>
+        </section>
 
+        <div class="ticker"><div class="ticker-track"><span>PLAY WITHOUT BORDERS</span><b>✦</b><span>FIND YOUR NEXT OBSESSION</span><b>✦</b><span>PLAY WITHOUT BORDERS</span><b>✦</b><span>FIND YOUR NEXT OBSESSION</span><b>✦</b></div></div>
 
-NEXUS // PLAY
-GamesCommunityEvents
-Log inDownload ↗
-The living arcade / season 09
-Play the edge.
-A living arcade for the next generation of games, players, and communities.
-Explore games ↗▶ Watch trailer
-KMS+
-86,402 players online now
+        <section class="showcase section container" id="games">
+          <div class="section-heading reveal"><div><p class="section-kicker">01 / Curated worlds</p><h2>Find your<br /><em>next game.</em></h2></div><p class="section-intro">Handpicked worlds built to pull you in and keep you moving. New drops every week.</p></div>
+          <div class="showcase-layout reveal">
+            <article class="featured-game">
+              <div class="featured-art-wrap"><div class="game-art art-rift" id="featured-art"><div class="art-grid"></div><div class="art-glow"></div><div class="art-orb"></div><div class="art-ring"></div><div class="art-scanline"></div><span class="art-coordinates">44° 07' / 09° 31'</span><span class="art-label">NXS // RIFT</span><strong class="art-title">NEON RIFT</strong></div></div>
+              <div class="featured-meta" id="featured-meta"><p class="meta-line"><i class="status-dot cyan"></i><span id="game-eyebrow">FEATURED DROP</span><b>/</b><span id="game-players">24.8K ONLINE</span></p><h3 id="game-title">NEON RIFT</h3><p id="game-description">Bend gravity. Break the loop. A kinetic run through a city that refuses to stay still.</p><div class="meta-bottom"><span id="game-genre">ROGUELITE / ACTION</span><a href="#download">View game <span>↗</span></a></div></div>
+            </article>
+            <div class="game-rail" aria-label="Game showcase carousel">
+              {% for game in games %}<button class="game-thumb{% if loop.first %} active{% endif %}" type="button" data-index="{{ loop.index0 }}" aria-label="Show {{ game.title }}"><span class="thumb-number">{{ game.number }}</span><div class="thumb-art {{ game.art_class }}"><div class="thumb-orb"></div><div class="thumb-ring"></div><strong>{{ game.title }}</strong></div></button>{% endfor %}
+              <div class="rail-controls"><button class="rail-arrow" id="prev-game" type="button" aria-label="Previous game">←</button><div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div><button class="rail-arrow next" id="next-game" type="button" aria-label="Next game">→</button></div>
+            </div>
+          </div>
+          <script id="game-data" type="application/json">{{ games|tojson }}</script>
+        </section>
 
+        <section class="community section" id="community"><div class="container community-grid"><div class="community-visual reveal"><div class="community-backdrop"></div><div class="community-card card-main"><span>NXS / COMMUNITY</span><div class="pulse-graph"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><strong>PLAY<br /><em>TOGETHER.</em></strong><small>01:24:08 / SQUAD SESSION</small></div><div class="community-card card-float card-float-a"><i></i> 12 SQUADS ONLINE</div><div class="community-card card-float card-float-b">◉ DISCORD.GG/NEXUS</div></div><div class="community-copy reveal"><p class="section-kicker">02 / The network</p><h2>More than<br /><em>a leaderboard.</em></h2><p class="section-intro">Find the people who make the late nights worth it. Squad up, share your clips, and build a home in the games you love.</p><div class="community-stats"><div><strong>3.8M</strong><span>players in orbit</span></div><div><strong>124K</strong><span>clips shared this week</span></div></div><a class="button button-ghost" href="#events">Explore the network <span>↗</span></a></div></div></section>
 
-NX / 09NNO LIMITS / NO LAG
+        <section class="events section container" id="events"><div class="section-heading reveal"><div><p class="section-kicker">03 / Live on the grid</p><h2>Stay in<br /><em>the loop.</em></h2></div><p class="section-intro">Events, drops, and community moments worth logging in for.</p></div><div class="event-list"><article class="event-row reveal"><div class="event-date"><strong>24</strong><span>SEP / 26</span></div><div><span class="event-type">TOURNAMENT / LIVE</span><h3>Neon Rift: Afterglow</h3><p>48 teams · $25K prize pool · starts 18:00 UTC</p></div><a href="#download" aria-label="View Neon Rift event">↗</a></article><article class="event-row reveal"><div class="event-date"><strong>02</strong><span>OCT / 26</span></div><div><span class="event-type">COMMUNITY / IRL</span><h3>Nexus LAN: Mumbai</h3><p>One city. One server. Tickets are limited.</p></div><a href="#download" aria-label="View Nexus LAN event">↗</a></article><article class="event-row reveal"><div class="event-date"><strong>17</strong><span>OCT / 26</span></div><div><span class="event-type">DROP / NEW GAME</span><h3>Signal Lost // Found</h3><p>A new co-op mystery from the edge of the map.</p></div><a href="#download" aria-label="View Signal Lost event">↗</a></article></div></section>
 
+        <section class="download section container" id="download"><div class="download-panel reveal"><div class="download-glow"></div><div class="download-copy"><p class="section-kicker">04 / Your portal</p><h2>Ready when<br /><em>you are.</em></h2><p>One download. Every world. Jump into the Nexus and find your people.</p><div class="download-actions"><button class="button button-primary download-button" type="button">Download Nexus <span>↗</span></button><span>Windows 10+ / macOS 12+</span></div><p class="download-status" aria-live="polite"></p></div><div class="download-object" aria-hidden="true"><div class="download-ring ring-one"></div><div class="download-ring ring-two"></div><div class="download-disc"><span>N</span></div></div></div></section>
+      </main>
 
-LIVE / 24.8K
-▦ 4 NEW DROPS
-01 / 04
-PLAY WITHOUT BORDERS✦FIND YOUR NEXT OBSESSION✦PLAY WITHOUT BORDERS✦FIND YOUR NEXT OBSESSION✦
-01 / Curated worlds
-Find your next game.
-Handpicked worlds built to pull you in and keep you moving. New drops every week.
+      <footer class="footer container"><div class="footer-main"><a class="logo" href="#top"><span class="logo-mark"><i></i><i></i><i></i></span><span>NEXUS<span class="logo-muted"> // PLAY</span></span></a><p>Make your own rules.<br />Stay curious.</p><div class="footer-links"><a href="#games">Games</a><a href="#community">Community</a><a href="#events">Events</a><a href="#download">Support</a></div><a class="social-link" href="#community">◉ Join Discord</a></div><div class="footer-bottom"><span>© 2026 Nexus Interactive</span><span>Built for the curious <i>✦</i></span><div><a href="#top">Privacy</a><a href="#top">Terms</a></div></div></footer>
 
-
-
-
-
-44° 07' / 09° 31'NXS // RIFTNEON RIFT
-FEATURED DROP/24.8K ONLINE
-NEON RIFT
-Bend gravity. Break the loop. A kinetic run through a city that refuses to stay still.
-ROGUELITE / ACTIONView game ↗
-{% for game in games %}{{ game.number }}
-
-
-{{ game.title }}
-{% endfor %}
-←
-
-→
-
-NXS / COMMUNITY
-
-PLAY
-TOGETHER.01:24:08 / SQUAD SESSION
-12 SQUADS ONLINE
-◉ DISCORD.GG/NEXUS
-02 / The network
-More than a leaderboard.
-Find the people who make the late nights worth it. Squad up, share your clips, and build a home in the games you love.
-3.8Mplayers in orbit
-124Kclips shared this week
-Explore the network ↗
-03 / Live on the grid
-Stay in the loop.
-Events, drops, and community moments worth logging in for.
-24SEP / 26
-TOURNAMENT / LIVE
-Neon Rift: Afterglow
-48 teams · $25K prize pool · starts 18:00 UTC
-↗
-02OCT / 26
-COMMUNITY / IRL
-Nexus LAN: Mumbai
-One city. One server. Tickets are limited.
-↗
-17OCT / 26
-DROP / NEW GAME
-Signal Lost // Found
-A new co-op mystery from the edge of the map.
-↗
-
-04 / Your portal
-Ready when you are.
-One download. Every world. Jump into the Nexus and find your people.
-Download Nexus ↗Windows 10+ / macOS 12+
-
-
-
-N
-NEXUS // PLAY
-Make your own rules. Stay curious.
-GamesCommunityEventsSupport
-◉ Join Discord
-© 2026 Nexus InteractiveBuilt for the curious ✦
-PrivacyTerms
+      <div class="modal-backdrop" id="trailer-modal" hidden><div class="trailer-modal" role="dialog" aria-modal="true" aria-label="Nexus trailer"><button class="modal-close" type="button" aria-label="Close trailer">×</button><div class="trailer-screen"><span>NEXUS // LIVE FEED</span><strong>THE EDGE<br /><em>IS YOURS.</em></strong><button class="trailer-play" type="button" aria-label="Play trailer">▶</button><small>01:46 / SIGNAL LOCKED</small></div></div></div>
+    </div>
+    <script type="module" src="{{ url_for('static', filename='js/main.js') }}"></script>
+  </body>
+</html>
