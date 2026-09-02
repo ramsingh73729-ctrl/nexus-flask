@@ -1,13 +1,67 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#070912" />
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <meta name="description" content="Nexus is a living arcade for the next generation of games, players, and communities." />
+    <button class="login-button" id="openLogin" type="button">
+    Log in
+</button>
     <title>NEXUS — Play the edge</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <div class="modal-backdrop" id="loginModal" hidden>
+    <section class="login-modal" role="dialog" aria-modal="true">
+        <button class="modal-close" id="closeLogin" type="button">×</button>
+
+        <p class="section-kicker">NXS / ACCESS PORTAL</p>
+
+        <h2>Enter the<br><em>Nexus.</em></h2>
+
+        <form id="loginForm">
+            <div class="login-field">
+                <label for="loginEmail">Email</label>
+                <input
+                    id="loginEmail"
+                    type="email"
+                    placeholder="player@nexus.com"
+                    required
+                >
+            </div>
+
+            <div class="login-field">
+                <label for="loginPassword">Password</label>
+
+                <div class="password-wrap">
+                    <input
+                        id="loginPassword"
+                        type="password"
+                        placeholder="••••••••"
+                        required
+                    >
+                    <button id="togglePassword" type="button">SHOW</button>
+                </div>
+            </div>
+
+            <div class="login-row">
+                <label>
+                    <input type="checkbox">
+                    Remember me
+                </label>
+
+                <a href="#">Forgot password?</a>
+            </div>
+
+            <button class="button button-primary login-submit" type="submit">
+                Continue <span>↗</span>
+            </button>
+
+            <p class="login-status" id="loginStatus"></p>
+        </form>
+
+        <p class="login-help">
+            New player? Your Nexus profile awaits.
+        </p>
+    </section>
+</div>
+
+<script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
   </head>
