@@ -1,4 +1,72 @@
-import { animate, inView, stagger } from "https://cdn.jsdelivr.net/npm/motion@latest/+esm";
+const loginModal = document.getElementById("loginModal");
+const openLogin = document.getElementById("openLogin");
+const closeLogin = document.getElementById("closeLogin");
+const loginForm = document.getElementById("loginForm");
+const loginStatus = document.getElementById("loginStatus");
+const passwordInput = document.getElementById("loginPassword");
+const togglePassword = document.getElementById("togglePassword");
+
+function setLoginModal(isOpen) {
+    loginModal.hidden = !isOpen;
+    document.body.classList.toggle("modal-open", isOpen);
+
+    if (isOpen) {
+        document.getElementById("loginEmail").focus();
+    }
+}
+
+openLogin?.addEventListener("click", () => setLoginModal(true));
+closeLogin?.addEventListener("click", () => setLoginModal(false));
+
+loginModal?.addEventListener("click", (event) => {
+    if (event.target === loginModal) {
+        setLoginModal(false);
+    }
+});
+
+document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !loginModal.hidden) {
+        setLoginModal(false);
+    }
+});
+
+togglePassword?.addEventListener("click", () => {
+    const isPassword = passwordInput.type === "password";
+
+    passwordInput.type = isPassword ? "text" : "password";
+    togglePassword.textContent = isPassword ? "HIDE" : "SHOW";
+});
+
+loginForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    loginStatus.className = "login-status";
+    loginStatus.textContent = "AUTHENTICATING...";
+
+    const email = document.getElementById("loginEmail").value;
+    const password = passwordInput.value;
+
+    try {
+        const response = await fetch("/api/login", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ email, password })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.message || "Login failed");
+        }
+
+        loginStatus.className = "login-status success";
+        loginStatus.textContent = result.message;
+    } catch (error) {
+        loginStatus.textContent = error.message;
+    }
+});import { animate, inView, stagger } from "https://cdn.jsdelivr.net/npm/motion@latest/+esm";
 
 const menuButton = document.querySelector(".menu-toggle");
 const navLinks = document.querySelector(".nav-links");
