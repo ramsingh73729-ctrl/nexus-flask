@@ -12,9 +12,10 @@ from flask import (
 )
 
 from flask_sqlalchemy import SQLAlchemy
+
 from authlib.integrations.flask_client import OAuth
 
-from werkzeug.security import generate_password_hash, check_password_hashfrom 
+from werkzeug.security import generate_password_hash, check_password_hash
 
 from flask import Flask, render_template, request, jsonify
 
