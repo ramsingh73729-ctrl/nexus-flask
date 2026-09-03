@@ -116,3 +116,100 @@ document.addEventListener("keydown", (event) => {
     }
   }
 });
+const signupModal = document.getElementById("signupModal");
+const openSignup = document.getElementById("openSignup");
+const closeSignup = document.getElementById("closeSignup");
+const signupForm = document.getElementById("signupForm");
+const signupStatus = document.getElementById("signupStatus");
+
+function showSignup() {
+  if (!signupModal) return;
+
+  hideLogin();
+  signupModal.hidden = false;
+  document.body.classList.add("modal-open");
+
+  document.getElementById("signupName")?.focus();
+}
+
+function hideSignup() {
+  if (!signupModal) return;
+
+  signupModal.hidden = true;
+  document.body.classList.remove("modal-open");
+}
+
+openSignup?.addEventListener("click", showSignup);
+closeSignup?.addEventListener("click", hideSignup);
+
+signupModal?.addEventListener("click", (event) => {
+  if (event.target === signupModal) {
+    hideSignup();
+  }
+});
+
+signupForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const name = document.getElementById("signupName").value.trim();
+  const email = document.getElementById("signupEmail").value.trim();
+  const password = document.getElementById("signupPassword").value;
+  const confirmPassword = document.getElementById("signupConfirm").value;
+  const turnstileToken = signupForm.querySelector(
+    'input[name="cf-turnstile-response"]'
+  )?.value;
+
+  if (password !== confirmPassword) {
+    signupStatus.textContent = "Passwords do not match.";
+    return;
+  }
+
+  if (!turnstileToken) {
+    signupStatus.textContent = "Please complete the security check.";
+    return;
+  }
+
+  signupStatus.textContent = "CREATING ACCOUNT...";
+  signupStatus.className = "login-status";
+
+  try {
+    const response = await fetch("/api/register", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        name,
+        email,
+        password,
+        confirm_password: confirmPassword,
+        turnstile_token: turnstileToken
+      })
+    });
+
+    const result = await response.json();
+
+    signupStatus.textContent =
+      result.message || "Account created successfully.";
+
+    if (response.ok) {
+      signupStatus.className = "login-status success";
+      signupForm.reset();
+
+      if (window.turnstile) {
+        window.turnstile.reset();
+      }
+    } else {
+      signupStatus.className = "login-status";
+    }
+  } catch (error) {
+    signupStatus.textContent = "Network error. Please try again.";
+    signupStatus.className = "login-status";
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && signupModal && !signupModal.hidden) {
+    hideSignup();
+  }
+});
