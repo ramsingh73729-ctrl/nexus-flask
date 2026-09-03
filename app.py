@@ -33,6 +33,7 @@ if database_url.startswith("postgres://"):
         "postgresql+psycopg://",
         1
     )
+    
 elif database_url.startswith("postgresql://"):
     database_url = database_url.replace(
         "postgresql://",
@@ -60,6 +61,7 @@ class User(db.Model):
         unique=True,
         nullable=True
     )
+    
     created_at = db.Column(
         db.DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)
@@ -75,6 +77,7 @@ oauth.register(
     server_metadata_url=(
         "https://accounts.google.com/.well-known/openid-configuration"
     ),
+    
     client_kwargs={
         "scope": "openid profile email"
     }
@@ -192,6 +195,8 @@ def contact():
         }
     )
     return jsonify(status="ok", message="Signal received. Welcome to the network.")
+
+
 @app.route("/api/login", methods=["POST"])
 def api_login():
     data = request.get_json(silent=True) or {}
