@@ -53,7 +53,7 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
 oauth = OAuth(app)
-if email == ...(db.Model):
+class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
     email = db.Column(
@@ -62,14 +62,12 @@ if email == ...(db.Model):
         nullable=False,
         index=True
     )
-    
     password_hash = db.Column(db.String(255), nullable=True)
     google_id = db.Column(
         db.String(255),
         unique=True,
         nullable=True
     )
-    
     created_at = db.Column(
         db.DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc)
