@@ -206,18 +206,30 @@ def contact():
 
 @app.route("/api/login", methods=["POST"])
 def api_login():
-    
     data = request.get_json(silent=True) or {}
-
     email = data.get("email", "").strip().lower()
     password = data.get("password", "")
 
     user = User.query.filter_by(email=email).first()
+
     if not user or not user.password_hash:
+        return jsonify({
+            "ok": False,
+            "message": "Account not found."
+        }), 401
+
+    if not check_password_hash(user.password_hash, password):
+        return jsonify({
+            "ok": False,
+            "message": "Invalid email or password."
+        }), 401
+
+    session["user_id"] = user.id
+
     return jsonify({
-        "ok": False,
-        "message": "Account not found."
-    }), 401
+        "ok": True,
+        "message": f"Welcome back, {user.name}!"
+    })
 
 if not check_password_hash(user.password_hash, password):
     return jsonify({
