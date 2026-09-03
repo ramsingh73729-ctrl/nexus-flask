@@ -206,6 +206,7 @@ def contact():
 
 @app.route("/api/login", methods=["POST"])
 def api_login():
+    
     data = request.get_json(silent=True) or {}
 
     email = data.get("email", "").strip().lower()
