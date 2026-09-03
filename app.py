@@ -203,7 +203,6 @@ def contact():
     )
     return jsonify(status="ok", message="Signal received. Welcome to the network.")
 
-
 @app.route("/api/login", methods=["POST"])
 def api_login():
     data = request.get_json(silent=True) or {}
@@ -230,43 +229,6 @@ def api_login():
         "ok": True,
         "message": f"Welcome back, {user.name}!"
     })
-
-if not check_password_hash(user.password_hash, password):
-    return jsonify({
-        "ok": False,
-        "message": "Invalid email or password."
-    }), 401
-
-session["user_id"] = user.id
-
-return jsonify({
-    "ok": True,
-    "message": f"Welcome back, {user.name}!"
-})
-
-    
-@app.post("/api/download")
-def download():
-    global DOWNLOADS
-    DOWNLOADS += 1
-    return jsonify(status="ok", message="Your Nexus launcher is ready to download.", downloads=DOWNLOADS)
-
-
-@app.errorhandler(413)
-def request_too_large(_error):
-    return jsonify(error="Request is too large."), 413
-
-@app.route("/auth/google")
-def google_login():
-    if not os.environ.get("GOOGLE_CLIENT_ID"):
-        return "Google login is not configured.", 503
-
-    redirect_uri = url_for(
-        "google_callback",
-        _external=True
-    )
-
-    return oauth.google.authorize_redirect(redirect_uri)
 
 
 @app.route("/auth/google/callback")
