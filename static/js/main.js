@@ -127,6 +127,15 @@ function showSignup() {
 
   hideLogin();
   signupModal.hidden = false;
+    if (window.turnstile && !signupModal.dataset.turnstileRendered) {
+  window.turnstile.ready(() => {
+    window.turnstile.render("#signupTurnstile", {
+      sitekey: document.getElementById("signupTurnstile").dataset.sitekey,
+      theme: "dark"
+    });
+    signupModal.dataset.turnstileRendered = "true";
+  });
+}
   document.body.classList.add("modal-open");
 
   document.getElementById("signupName")?.focus();
