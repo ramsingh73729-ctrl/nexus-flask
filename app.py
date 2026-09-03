@@ -13,14 +13,18 @@ from flask import (
 
 from flask_sqlalchemy import SQLAlchemy
 from authlib.integrations.flask_client import OAuth
+
 from werkzeug.security import generate_password_hash, check_password_hashfrom datetime import datetime, timezone
+
 from flask import Flask, render_template, request, jsonify
 
 from flask import Flask, jsonify, render_template, request
 
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024app.config["SECRET_KEY"] = os.environ.get(
+app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024
+
+app.config["SECRET_KEY"] = os.environ.get(
     "SECRET_KEY",
     "dev-secret-change-this"
 )
