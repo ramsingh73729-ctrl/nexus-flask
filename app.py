@@ -173,13 +173,10 @@ def contact():
     )
     return jsonify(status="ok", message="Signal received. Welcome to the network.")
 @app.route("/api/signup", methods=["POST"])
-@app.route("/api/signup", methods=["POST"])
-@app.route("/api/register", methods=["POST"])
-def api_signup():
 @app.route("/api/register", methods=["POST"])
 def api_signup():
     data = request.get_json(silent=True) or {}
-
+    
     name = str(data.get("name") or "").strip()
     email = str(data.get("email") or "").strip().lower()
     password = str(data.get("password") or "")
