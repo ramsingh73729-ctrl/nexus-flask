@@ -14,6 +14,17 @@
     letter-spacing: -.08em;
     font-weight: 500;
 }
+.google-login {
+    width: 100%;
+    margin-top: 14px;
+    justify-content: center;
+}
+
+.google-icon {
+    color: #4285f4;
+    font-size: 18px;
+    font-weight: 700;
+}
 
 .login-modal h2 em {
     color: transparent;
