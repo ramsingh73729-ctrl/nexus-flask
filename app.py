@@ -56,7 +56,23 @@ def home():
 
 @app.get("/health")
 def health():
-    return jsonify(status="ok", service="nexus-gaming-flask")
+    return jsonify(status="ok", service="nexus-gaming-flask")@app.route("/api/login", methods=["POST"])
+def login():
+    data = request.get_json(silent=True) or {}
+
+    email = data.get("email", "").strip().lower()
+    password = data.get("password", "")
+
+    if email == "demo@nexus.test" and password == "Nexus@123":
+        return jsonify({
+            "ok": True,
+            "message": "Welcome back, Nexus Player!"
+        })
+
+    return jsonify({
+        "ok": False,
+        "message": "Invalid email or password."
+    }), 401
 
 
 @app.get("/api/games")
