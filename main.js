@@ -163,4 +163,58 @@ document.querySelector(".download-button")?.addEventListener("click", async (eve
   } finally {
     button.disabled = false;
   }
+});document.addEventListener("DOMContentLoaded", function () {
+    const openLogin = document.getElementById("openLogin");
+    const loginModal = document.getElementById("loginModal");
+    const closeLogin = document.getElementById("closeLogin");
+    const loginForm = document.getElementById("loginForm");
+    const loginStatus = document.getElementById("loginStatus");
+
+    if (!openLogin || !loginModal) {
+        console.log("Login elements not found");
+        return;
+    }
+
+    openLogin.addEventListener("click", function () {
+        loginModal.hidden = false;
+        document.body.classList.add("modal-open");
+    });
+
+    closeLogin?.addEventListener("click", function () {
+        loginModal.hidden = true;
+        document.body.classList.remove("modal-open");
+    });
+
+    loginModal.addEventListener("click", function (event) {
+        if (event.target === loginModal) {
+            loginModal.hidden = true;
+            document.body.classList.remove("modal-open");
+        }
+    });
+
+    loginForm?.addEventListener("submit", async function (event) {
+        event.preventDefault();
+
+        loginStatus.textContent = "Logging in...";
+
+        const response = await fetch("/api/login", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                email: document.getElementById("loginEmail").value,
+                password: document.getElementById("loginPassword").value
+            })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            loginStatus.textContent = result.message;
+            loginStatus.className = "login-status success";
+        } else {
+            loginStatus.textContent = result.message;
+        }
+    });
 });
