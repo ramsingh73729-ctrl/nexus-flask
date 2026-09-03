@@ -243,3 +243,26 @@ svg {
     align-items: stretch;
   }
 }
+.login-modal {
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+}
+
+.login-help {
+    display: block;
+    visibility: visible;
+    opacity: 1;
+    margin-top: 24px;
+    color: #969bb5;
+    text-align: center;
+}
+
+.login-help button {
+    display: inline-block;
+    border: 0;
+    background: transparent;
+    color: #69e9f2;
+    padding: 0;
+    font: inherit;
+    cursor: pointer;
+}
