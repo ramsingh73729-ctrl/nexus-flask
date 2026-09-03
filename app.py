@@ -240,10 +240,7 @@ def download():
     DOWNLOADS += 1
     return jsonify(status="ok", message="Your Nexus launcher is ready to download.", downloads=DOWNLOADS)
 
-<a class="button button-outline google-login" href="/auth/google">
-    <span class="google-icon">G</span>
-    Continue with Google
-</a>
+
 @app.errorhandler(413)
 def request_too_large(_error):
     return jsonify(error="Request is too large."), 413
