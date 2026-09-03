@@ -1,3 +1,4 @@
+import requests
 import os
 from datetime import datetime, timezone
 
@@ -52,7 +53,7 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
 oauth = OAuth(app)
-class User(db.Model):
+if email == ...(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
     email = db.Column(
@@ -140,44 +141,13 @@ def home():
 
 @app.get("/health")
 def health():
-    return jsonify(status="ok", service="nexus-gaming-flask")@app.route("/api/login", methods=["POST"])
-def login():
-    data = request.get_json(silent=True) or {}
-
-    email = data.get("email", "").strip().lower()
-    password = data.get("password", "")
-
-    if email == "demo@nexus.test" and password == "Nexus@123":
-        return jsonify({
-            "ok": True,
-            "message": "Welcome back, Nexus Player!"
-        })
-
-    return jsonify({
-        "ok": False,
-        "message": "Invalid email or password."
-    }), 401
+    return jsonify(status="ok", service="nexus-gaming-flask")
 
 
 @app.get("/api/games")
 def games():
-    return jsonify(games=GAMES)@app.route("/api/login", methods=["POST"])
-def login():
-    data = request.get_json(silent=True) or {}
+   return jsonify(games=GAMES)
 
-    email = data.get("email", "").strip().lower()
-    password = data.get("password", "")
-
-    if email == "demo@nexus.test" and password == "Nexus@123":
-        return jsonify({
-            "ok": True,
-            "message": "Welcome back, Nexus Player."
-        })
-
-    return jsonify({
-        "ok": False,
-        "message": "Invalid email or password."
-    }), 401
 
 
 @app.post("/api/contact")
@@ -203,6 +173,65 @@ def contact():
     )
     return jsonify(status="ok", message="Signal received. Welcome to the network.")
 @app.route("/api/signup", methods=["POST"])
+@app.route("/api/signup", methods=["POST"])
+@app.route("/api/register", methods=["POST"])
+def api_signup():
+@app.route("/api/register", methods=["POST"])
+def api_signup():
+    data = request.get_json(silent=True) or {}
+
+    name = str(data.get("name") or "").strip()
+    email = str(data.get("email") or "").strip().lower()
+    password = str(data.get("password") or "")
+    confirm_password = str(data.get("confirm_password") or "")
+    turnstile_token = str(data.get("turnstile_token") or "").strip()
+
+    if not name or not email or not password or not confirm_password:
+        return jsonify(ok=False, message="All fields are required."), 400
+
+    if "@" not in email:
+        return jsonify(ok=False, message="Enter a valid email."), 400
+
+    if password != confirm_password:
+        return jsonify(ok=False, message="Passwords do not match."), 400
+
+    if len(password) < 8:
+        return jsonify(ok=False, message="Password must be at least 8 characters."), 400
+
+    secret = os.environ.get("TURNSTILE_SECRET_KEY", "").strip()
+
+    if not secret or not turnstile_token:
+        return jsonify(ok=False, message="Please complete the security check."), 400
+
+    try:
+        response = requests.post(
+            "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+            data={"secret": secret, "response": turnstile_token},
+            timeout=10
+        )
+        verification = response.json()
+    except (requests.RequestException, ValueError):
+        return jsonify(ok=False, message="Security check unavailable."), 502
+
+    if not verification.get("success"):
+        return jsonify(ok=False, message="Security check failed."), 400
+
+    if User.query.filter_by(email=email).first():
+        return jsonify(ok=False, message="Account already exists."), 409
+
+    user = User(
+        name=name,
+        email=email,
+        password_hash=generate_password_hash(password)
+    )
+
+    db.session.add(user)
+    db.session.commit()
+
+    return jsonify(
+        ok=True,
+        message="Account created successfully."
+    ), 201
 def api_signup():
     data = request.get_json(silent=True) or {}
 
