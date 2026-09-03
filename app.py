@@ -244,9 +244,7 @@ return jsonify({
     "message": f"Welcome back, {user.name}!"
 })
 
-    <a class="button button-outline google-login" href="/auth/google">
-  Continue with Google
-</a>
+    
 @app.post("/api/download")
 def download():
     global DOWNLOADS
