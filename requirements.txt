@@ -1,2 +1,5 @@
 Flask>=3.1,<4
 gunicorn
+Authlib
+Flask-SQLAlchemy
+psycopg[binary]
