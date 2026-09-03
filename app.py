@@ -45,7 +45,29 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
 oauth = OAuth(app)
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    email = db.Column(
+        db.String(255),
+        unique=True,
+        nullable=False,
+        index=True
+    )
+    password_hash = db.Column(db.String(255), nullable=True)
+    google_id = db.Column(
+        db.String(255),
+        unique=True,
+        nullable=True
+    )
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc)
+    )
 
+
+with app.app_context():
+    db.create_all()
 oauth.register(
     name="google",
     client_id=os.environ.get("GOOGLE_CLIENT_ID"),
