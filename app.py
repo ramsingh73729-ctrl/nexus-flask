@@ -267,6 +267,10 @@ def api_login():
         "ok": True,
         "message": f"Welcome back, {user.name}!"
     })
+@app.route("/auth/google")
+def google_login():
+    redirect_uri = "https://nexus-flask.onrender.com/auth/google/callback"
+    return oauth.google.authorize_redirect(redirect_uri)
 
 
 @app.route("/auth/google/callback")
