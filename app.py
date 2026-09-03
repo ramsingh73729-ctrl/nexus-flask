@@ -14,7 +14,9 @@ from flask import (
 from flask_sqlalchemy import SQLAlchemy
 from authlib.integrations.flask_client import OAuth
 
-from werkzeug.security import generate_password_hash, check_password_hashfrom datetime import datetime, timezone
+from werkzeug.security import generate_password_hash, check_password_hashfrom 
+
+from datetime import datetime, timezone
 
 from flask import Flask, render_template, request, jsonify
 
@@ -38,6 +40,7 @@ if database_url.startswith("postgres://"):
         1
     )
     
+    
 elif database_url.startswith("postgresql://"):
     database_url = database_url.replace(
         "postgresql://",
@@ -59,6 +62,7 @@ class User(db.Model):
         nullable=False,
         index=True
     )
+    
     password_hash = db.Column(db.String(255), nullable=True)
     google_id = db.Column(
         db.String(255),
