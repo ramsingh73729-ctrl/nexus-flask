@@ -231,6 +231,49 @@ def download():
 def request_too_large(_error):
     return jsonify(error="Request is too large."), 413
 
+@app.route("/auth/google")
+def google_login():
+    if not os.environ.get("GOOGLE_CLIENT_ID"):
+        return "Google login is not configured.", 503
 
+    redirect_uri = url_for(
+        "google_callback",
+        _external=True
+    )
+
+    return oauth.google.authorize_redirect(redirect_uri)
+
+
+@app.route("/auth/google/callback")
+def google_callback():
+    token = oauth.google.authorize_access_token()
+    user_info = token["userinfo"]
+
+    email = user_info["email"].strip().lower()
+    google_id = user_info["sub"]
+    name = user_info.get("name") or email.split("@")[0]
+
+    user = User.query.filter_by(email=email).first()
+
+    if user is None:
+        user = User(
+            name=name,
+            email=email,
+            google_id=google_id
+        )
+        db.session.add(user)
+    else:
+        user.google_id = user.google_id or google_id
+
+    db.session.commit()
+    session["user_id"] = user.id
+
+    return redirect("/")
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/")
 if __name__ == "__main__":
     app.run(debug=True, host="127.0.0.1", port=5000)
