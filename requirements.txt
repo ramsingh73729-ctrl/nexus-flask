@@ -3,3 +3,4 @@ gunicorn
 Authlib
 Flask-SQLAlchemy
 psycopg[binary]
+requests>=2.31,<3
