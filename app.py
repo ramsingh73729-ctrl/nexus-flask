@@ -635,3 +635,109 @@ def report_post(post_id):
     db.session.commit()
     
     return jsonify({'success': True})
+@app.route('/events')
+def events_index():
+    upcoming = Event.query.filter(
+        Event.status == 'upcoming',
+        Event.start_date > datetime.utcnow()
+    ).order_by(Event.start_date).limit(10).all()
+    
+    active = Event.query.filter(
+        Event.status == 'active'
+    ).order_by(Event.start_date.desc()).all()
+    
+    return render_template('events.html', upcoming=upcoming, active=active)
+
+@app.route('/event/<slug>')
+def event_detail(slug):
+    event = Event.query.filter_by(slug=slug).first_or_404()
+    
+    # Get leaderboard
+    leaderboard = LeaderboardEntry.query.filter_by(event_id=event.id)\
+        .order_by(LeaderboardEntry.score.desc()).limit(50).all()
+    
+    # Check if user is participating
+    is_participating = False
+    if current_user.is_authenticated:
+        is_participating = EventParticipant.query.filter_by(
+            event_id=event.id,
+            user_id=current_user.id
+        ).first() is not None
+    
+    return render_template('event_detail.html', event=event, 
+                         leaderboard=leaderboard, is_participating=is_participating)
+
+@app.route('/api/event/<int:event_id>/register', methods=['POST'])
+@login_required
+def register_event(event_id):
+    event = Event.query.get_or_404(event_id)
+    
+    # Check if already registered
+    existing = EventParticipant.query.filter_by(
+        event_id=event_id,
+        user_id=current_user.id
+    ).first()
+    
+    if existing:
+        return jsonify({'error': 'Already registered'}), 400
+    
+    # Check if event is full
+    if event.max_participants and event.current_participants >= event.max_participants:
+        return jsonify({'error': 'Event is full'}), 400
+    
+    # Check registration deadline
+    if event.registration_deadline and datetime.utcnow() > event.registration_deadline:
+        return jsonify({'error': 'Registration closed'}), 400
+    
+    participant = EventParticipant(
+        event_id=event_id,
+        user_id=current_user.id
+    )
+    
+    db.session.add(participant)
+    event.current_participants += 1
+    db.session.commit()
+    
+    # Create notification
+    notify = Notification(
+        user_id=current_user.id,
+        type='event_registered',
+        event_id=event_id
+    )
+    db.session.add(notify)
+    db.session.commit()
+    
+    return jsonify({'success': True})
+
+@app.route('/api/event/<int:event_id>/leaderboard/update', methods=['POST'])
+@login_required
+def update_leaderboard(event_id):
+    data = request.get_json()
+    score = data.get('score', 0)
+    
+    entry = LeaderboardEntry.query.filter_by(
+        event_id=event_id,
+        user_id=current_user.id
+    ).first()
+    
+    if not entry:
+        # Auto-register if not registered
+        entry = LeaderboardEntry(
+            event_id=event_id,
+            user_id=current_user.id,
+            score=score
+        )
+        db.session.add(entry)
+    else:
+        entry.score = max(entry.score, score)  # Keep highest score
+    
+    # Update rank
+    all_entries = LeaderboardEntry.query.filter_by(event_id=event_id)\
+        .order_by(LeaderboardEntry.score.desc()).all()
+    
+    for i, e in enumerate(all_entries, 1):
+        e.rank = i
+    
+    db.session.commit()
+    
+    return jsonify({'success': True, 'rank': entry.rank, 'score': entry.score})
