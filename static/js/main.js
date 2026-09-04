@@ -296,3 +296,43 @@ function handleFormSubmit(formElement) {
         }
     }, 2000);
 }
+// Global loading overlay
+function showLoading() {
+    const overlay = document.createElement('div');
+    overlay.id = 'loading-overlay';
+    overlay.innerHTML = `
+        <div class="loading-spinner">
+            <i class="fas fa-circle-notch fa-spin fa-3x"></i>
+            <p>Loading...</p>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+}
+
+function hideLoading() {
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) overlay.remove();
+}
+
+// Empty states
+function showEmptyState(container, message, icon = 'inbox') {
+    container.innerHTML = `
+        <div class="empty-state">
+            <i class="fas fa-${icon} fa-3x text-muted mb-3"></i>
+            <p class="text-muted">${message}</p>
+        </div>
+    `;
+}
+
+// Toast notifications
+function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+        <span>${message}</span>
+    `;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => toast.remove(), 3000);
+}
