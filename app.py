@@ -411,3 +411,105 @@ def forgot_password():
 def reset_password(token):
     # Verify token and allow password reset
     pass
+@app.route('/games')
+def games_index():
+    # Get filters
+    genre = request.args.get('genre')
+    search = request.args.get('search')
+    sort = request.args.get('sort', 'newest')
+    
+    query = Game.query
+    
+    if genre:
+        query = query.filter_by(genre=genre)
+    
+    if search:
+        query = query.filter(Game.title.ilike(f'%{search}%'))
+    
+    if sort == 'popular':
+        query = query.order_by(Game.plays_count.desc())
+    elif sort == 'rating':
+        query = query.order_by(Game.rating_avg.desc())
+    else:
+        query = query.order_by(Game.created_at.desc())
+    
+    # Pagination
+    page = request.args.get('page', 1, type=int)
+    games = query.paginate(page=page, per_page=20, error_out=False)
+    
+    # Get all genres for filter dropdown
+    genres = db.session.query(Game.genre).distinct().all()
+    
+    return render_template('games.html', games=games, genres=genres, 
+                         current_genre=genre, current_search=search)
+
+@app.route('/game/<slug>')
+def game_detail(slug):
+    game = Game.query.filter_by(slug=slug).first_or_404()
+    
+    # Increment play count
+    game.plays_count += 1
+    db.session.commit()
+    
+    # Get reviews
+    reviews = Review.query.filter_by(game_id=game.id)\
+        .order_by(Review.created_at.desc()).limit(5).all()
+    
+    # Get similar games
+    similar = Game.query.filter_by(genre=game.genre)\
+        .filter(Game.id != game.id).limit(6).all()
+    
+    return render_template('game_detail.html', game=game, 
+                         reviews=reviews, similar=similar)
+
+@app.route('/api/game/<int:game_id>/favorite', methods=['POST'])
+@login_required
+def toggle_favorite(game_id):
+    favorite = FavoriteGame.query.filter_by(
+        user_id=current_user.id, 
+        game_id=game_id
+    ).first()
+    
+    if favorite:
+        db.session.delete(favorite)
+        db.session.commit()
+        return jsonify({'favorited': False})
+    else:
+        favorite = FavoriteGame(user_id=current_user.id, game_id=game_id)
+        db.session.add(favorite)
+        db.session.commit()
+        return jsonify({'favorited': True})
+
+@app.route('/api/game/<int:game_id>/review', methods=['POST'])
+@login_required
+def add_review(game_id):
+    data = request.get_json()
+    
+    # Check if already reviewed
+    existing = Review.query.filter_by(
+        user_id=current_user.id,
+        game_id=game_id
+    ).first()
+    
+    if existing:
+        return jsonify({'error': 'Already reviewed'}), 400
+    
+    review = Review(
+        user_id=current_user.id,
+        game_id=game_id,
+        rating=data['rating'],
+        title=data.get('title', ''),
+        content=data.get('content', '')
+    )
+    
+    db.session.add(review)
+    
+    # Update game rating
+    game = Game.query.get(game_id)
+    all_reviews = Review.query.filter_by(game_id=game_id).all()
+    game.rating_avg = sum(r.rating for r in all_reviews) / len(all_reviews)
+    game.rating_count = len(all_reviews)
+    
+    db.session.commit()
+    
+    return jsonify({'success': True})
