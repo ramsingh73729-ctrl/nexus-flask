@@ -102,3 +102,59 @@ class FavoriteGame(db.Model):
     added_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     __table_args__ = (db.UniqueConstraint('user_id', 'game_id', name='unique_user_game_favorite'),)
+class CommunityPost(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    title = db.Column(db.String(300), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    image = db.Column(db.String(256))
+    tags = db.Column(db.JSON, default=[])
+    
+    # Stats
+    likes_count = db.Column(db.Integer, default=0)
+    comments_count = db.Column(db.Integer, default=0)
+    views_count = db.Column(db.Integer, default=0)
+    
+    # Moderation
+    is_reported = db.Column(db.Boolean, default=False)
+    report_count = db.Column(db.Integer, default=0)
+    is_pinned = db.Column(db.Boolean, default=False)
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    comments = db.relationship('Comment', backref='post', lazy='dynamic', 
+                              cascade='all, delete-orphan')
+    likes = db.relationship('PostLike', backref='post', lazy='dynamic')
+    reports = db.relationship('PostReport', backref='post', lazy='dynamic')
+
+class Comment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    post_id = db.Column(db.Integer, db.ForeignKey('community_post.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    parent_id = db.Column(db.Integer, db.ForeignKey('comment.id'))  # For replies
+    
+    content = db.Column(db.Text, nullable=False)
+    likes_count = db.Column(db.Integer, default=0)
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Self-referential relationship for replies
+    replies = db.relationship('Comment', backref=db.backref('parent', remote_side=[id]))
+    user = db.relationship('User', foreign_keys=[user_id])
+
+class PostLike(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    post_id = db.Column(db.Integer, db.ForeignKey('community_post.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    __table_args__ = (db.UniqueConstraint('user_id', 'post_id', name='unique_post_like'),)
+
+class PostReport(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    post_id = db.Column(db.Integer, db.ForeignKey('community_post.id'), nullable=False)
+    reason = db.Column(db.String(500))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
