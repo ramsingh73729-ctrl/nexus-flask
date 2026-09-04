@@ -1,0 +1,11 @@
+# NEXUS database migrations
+
+This directory is managed by Flask-Migrate. Apply the safe Phase 2 schema
+change with:
+
+```bash
+FLASK_APP=app flask db upgrade
+```
+
+The migration adds player progression fields and the play/activity tables. It
+does not delete, reset, or recreate existing user data.
