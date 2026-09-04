@@ -513,3 +513,125 @@ def add_review(game_id):
     db.session.commit()
     
     return jsonify({'success': True})
+@app.route('/community')
+def community():
+    page = request.args.get('page', 1, type=int)
+    posts = CommunityPost.query.order_by(
+        CommunityPost.is_pinned.desc(),
+        CommunityPost.created_at.desc()
+    ).paginate(page=page, per_page=15)
+    
+    return render_template('community.html', posts=posts)
+
+@app.route('/community/post/<int:post_id>')
+def view_post(post_id):
+    post = CommunityPost.query.get_or_404(post_id)
+    post.views_count += 1
+    db.session.commit()
+    
+    comments = Comment.query.filter_by(post_id=post_id, parent_id=None)\
+        .order_by(Comment.created_at.desc()).all()
+    
+    return render_template('post_detail.html', post=post, comments=comments)
+
+@app.route('/api/community/post', methods=['POST'])
+@login_required
+def create_post():
+    data = request.get_json()
+    
+    post = CommunityPost(
+        user_id=current_user.id,
+        title=data['title'],
+        content=data['content'],
+        tags=data.get('tags', [])
+    )
+    
+    db.session.add(post)
+    db.session.commit()
+    
+    return jsonify({'success': True, 'post_id': post.id})
+
+@app.route('/api/post/<int:post_id>/like', methods=['POST'])
+@login_required
+def toggle_like(post_id):
+    like = PostLike.query.filter_by(
+        user_id=current_user.id,
+        post_id=post_id
+    ).first()
+    
+    post = CommunityPost.query.get(post_id)
+    
+    if like:
+        db.session.delete(like)
+        post.likes_count -= 1
+        db.session.commit()
+        return jsonify({'liked': False, 'count': post.likes_count})
+    else:
+        like = PostLike(user_id=current_user.id, post_id=post_id)
+        db.session.add(like)
+        post.likes_count += 1
+        db.session.commit()
+        
+        # Create notification for post author
+        if post.user_id != current_user.id:
+            notify = Notification(
+                user_id=post.user_id,
+                type='like',
+                actor_id=current_user.id,
+                post_id=post_id
+            )
+            db.session.add(notify)
+        
+        db.session.commit()
+        return jsonify({'liked': True, 'count': post.likes_count})
+
+@app.route('/api/post/<int:post_id>/comment', methods=['POST'])
+@login_required
+def add_comment(post_id):
+    data = request.get_json()
+    
+    comment = Comment(
+        post_id=post_id,
+        user_id=current_user.id,
+        content=data['content'],
+        parent_id=data.get('parent_id')  # For replies
+    )
+    
+    db.session.add(comment)
+    
+    post = CommunityPost.query.get(post_id)
+    post.comments_count += 1
+    db.session.commit()
+    
+    return jsonify({'success': True, 'comment_id': comment.id})
+
+@app.route('/api/post/<int:post_id>/report', methods=['POST'])
+@login_required
+def report_post(post_id):
+    data = request.get_json()
+    
+    # Check if already reported
+    existing = PostReport.query.filter_by(
+        user_id=current_user.id,
+        post_id=post_id
+    ).first()
+    
+    if existing:
+        return jsonify({'error': 'Already reported'}), 400
+    
+    report = PostReport(
+        user_id=current_user.id,
+        post_id=post_id,
+        reason=data.get('reason', '')
+    )
+    
+    db.session.add(report)
+    
+    post = CommunityPost.query.get(post_id)
+    post.report_count += 1
+    if post.report_count >= 5:
+        post.is_reported = True
+    
+    db.session.commit()
+    
+    return jsonify({'success': True})
