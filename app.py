@@ -23,7 +23,7 @@ from authlib.integrations.flask_client import OAuth
 from flask_wtf.csrf import generate_csrf, validate_csrf
 from werkzeug.security import generate_password_hash, check_password_hash
 from wtforms.validators import ValidationError
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 
 app = Flask(__name__)
@@ -225,7 +225,17 @@ def current_user():
     user_id = session.get("user_id")
     if not user_id:
         return None
-    return db.session.get(User, user_id)
+    try:
+        return db.session.get(User, user_id)
+    except SQLAlchemyError:
+        # A stale session must not turn the public landing page into a 500.
+        # This can happen briefly when a deployment has not applied a schema
+        # migration yet; clear only the invalid browser session and let the
+        # user continue as a signed-out visitor.
+        db.session.rollback()
+        session.pop("user_id", None)
+        app.logger.warning("Cleared an unreadable browser user session.")
+        return None
 
 
 def login_required(view):
