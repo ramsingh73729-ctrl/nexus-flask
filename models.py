@@ -53,3 +53,52 @@ class UserActivity(db.Model):
     action_type = db.Column(db.String(50))  # 'played_game', 'posted', 'commented', etc.
     action_data = db.Column(db.JSON)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+class Game(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False, index=True)
+    slug = db.Column(db.String(200), unique=True, nullable=False)
+    description = db.Column(db.Text)
+    thumbnail = db.Column(db.String(256))
+    game_url = db.Column(db.String(500))
+    
+    # Metadata
+    genre = db.Column(db.String(50), index=True)
+    tags = db.Column(db.JSON, default=[])
+    developer = db.Column(db.String(100))
+    release_date = db.Column(db.DateTime)
+    
+    # Stats
+    plays_count = db.Column(db.Integer, default=0)
+    rating_avg = db.Column(db.Float, default=0.0)
+    rating_count = db.Column(db.Integer, default=0)
+    
+    # SEO
+    featured = db.Column(db.Boolean, default=False)
+    trending = db.Column(db.Boolean, default=False)
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    reviews = db.relationship('Review', backref='game', lazy='dynamic')
+    favorites = db.relationship('FavoriteGame', backref='game', lazy='dynamic')
+
+class Review(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    game_id = db.Column(db.Integer, db.ForeignKey('game.id'), nullable=False)
+    rating = db.Column(db.Integer)  # 1-5
+    title = db.Column(db.String(200))
+    content = db.Column(db.Text)
+    helpful_count = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    __table_args__ = (db.UniqueConstraint('user_id', 'game_id', name='unique_user_game_review'),)
+
+class FavoriteGame(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    game_id = db.Column(db.Integer, db.ForeignKey('game.id'), nullable=False)
+    added_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    __table_args__ = (db.UniqueConstraint('user_id', 'game_id', name='unique_user_game_favorite'),)
