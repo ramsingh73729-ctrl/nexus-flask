@@ -213,3 +213,24 @@ class LeaderboardEntry(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     user = db.relationship('User')
+class Notification(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    
+    # Type: 'like', 'comment', 'follow', 'event', 'system'
+    type = db.Column(db.String(50), nullable=False)
+    
+    # Actor (who triggered it)
+    actor_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    actor = db.relationship('User', foreign_keys=[actor_id])
+    
+    # Related content
+    post_id = db.Column(db.Integer, db.ForeignKey('community_post.id'))
+    event_id = db.Column(db.Integer, db.ForeignKey('event.id'))
+    comment_id = db.Column(db.Integer, db.ForeignKey('comment.id'))
+    
+    # Content
+    message = db.Column(db.String(500))
+    is_read = db.Column(db.Boolean, default=False)
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
