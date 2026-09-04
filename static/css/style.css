@@ -266,6 +266,61 @@ svg {
     font: inherit;
     cursor: pointer;
 }
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+    outline: 2px solid var(--cyan);
+    outline-offset: 3px;
+}
+
+.login-submit:disabled {
+    opacity: .65;
+    cursor: wait;
+    transform: none;
+    box-shadow: none;
+}
+
+.login-status:empty {
+    visibility: hidden;
+}
+
+.access-toast.toast {
+    left: 50%;
+    right: auto;
+    bottom: 24px;
+    max-width: min(420px, calc(100% - 32px));
+    transform: translateX(-50%);
+    border: 1px solid var(--line-bright);
+    border-radius: 3px;
+    background: rgba(9, 13, 29, .96);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, .42), 0 0 24px rgba(105, 233, 255, .12);
+    color: var(--ink);
+    font: 10px var(--mono);
+    letter-spacing: .04em;
+    line-height: 1.5;
+    text-align: center;
+}
+
+.access-toast.toast-success {
+    border-color: var(--lime);
+    color: var(--lime);
+}
+
+.access-toast.toast-error {
+    border-color: var(--pink);
+    color: var(--pink);
+}
+
+.access-toast[hidden] {
+    display: none;
+}
+
+@media (max-width: 560px) {
+    .access-toast.toast {
+        bottom: 16px;
+    }
+}
 /* Loading Overlay */
 #loading-overlay {
     position: fixed;
