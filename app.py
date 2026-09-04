@@ -1,6 +1,7 @@
-import requests
 import os
+import requests
 from datetime import datetime, timezone
+from functools import wraps
 
 from flask import (
     Flask,
@@ -16,11 +17,9 @@ from flask_sqlalchemy import SQLAlchemy
 
 from authlib.integrations.flask_client import OAuth
 
+from flask_wtf.csrf import generate_csrf, validate_csrf
 from werkzeug.security import generate_password_hash, check_password_hash
-
-from flask import Flask, render_template, request, jsonify
-
-from flask import Flask, jsonify, render_template, request
+from wtforms.validators import ValidationError
 
 
 app = Flask(__name__)
@@ -53,6 +52,8 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
 oauth = OAuth(app)
+
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
@@ -88,6 +89,45 @@ oauth.register(
         "scope": "openid profile email"
     }
 )
+
+
+TURNSTILE_FAILURE_MESSAGE = (
+    "Security check failed or expired. Please complete it again."
+)
+TURNSTILE_UNAVAILABLE_MESSAGE = (
+    "Security check is temporarily unavailable. Please try again."
+)
+CSRF_FAILURE_MESSAGE = "Your session expired. Refresh the page and try again."
+
+
+@app.context_processor
+def inject_csrf_token():
+    """Make a CSRF token available to the browser forms without global API checks."""
+    return {"csrf_token": generate_csrf}
+
+
+def browser_csrf_protected(view):
+    """Protect browser requests while keeping cookie-less JSON clients compatible."""
+
+    @wraps(view)
+    def wrapped_view(*args, **kwargs):
+        session_cookie_name = app.config.get("SESSION_COOKIE_NAME", "session")
+        csrf_header = (
+            request.headers.get("X-CSRFToken")
+            or request.headers.get("X-CSRF-Token")
+        )
+
+        # Browser forms rendered by this app carry a session cookie and send the
+        # token in a header. Cookie-less API clients keep the existing API shape.
+        if request.cookies.get(session_cookie_name) or csrf_header:
+            try:
+                validate_csrf(csrf_header or request.form.get("csrf_token"))
+            except ValidationError:
+                return jsonify(ok=False, message=CSRF_FAILURE_MESSAGE), 400
+
+        return view(*args, **kwargs)
+
+    return wrapped_view
 
 GAMES = [
     {
@@ -172,6 +212,7 @@ def contact():
     return jsonify(status="ok", message="Signal received. Welcome to the network.")
 @app.route("/api/signup", methods=["POST"])
 @app.route("/api/register", methods=["POST"])
+@browser_csrf_protected
 def api_signup():
     data = request.get_json(silent=True) or {}
     
@@ -195,21 +236,42 @@ def api_signup():
 
     secret = os.environ.get("TURNSTILE_SECRET_KEY", "").strip()
 
-    if not secret or not turnstile_token:
-        return jsonify(ok=False, message="Please complete the security check."), 400
+    if not secret:
+        app.logger.error("Turnstile secret is not configured")
+        return jsonify(ok=False, message=TURNSTILE_UNAVAILABLE_MESSAGE), 503
+
+    if not turnstile_token:
+        return jsonify(ok=False, message=TURNSTILE_FAILURE_MESSAGE), 400
 
     try:
         response = requests.post(
             "https://challenges.cloudflare.com/turnstile/v0/siteverify",
             data={"secret": secret, "response": turnstile_token},
-            timeout=10
+            timeout=8
         )
+        response.raise_for_status()
         verification = response.json()
-    except (requests.RequestException, ValueError):
-        return jsonify(ok=False, message="Security check unavailable."), 502
+    except requests.Timeout:
+        app.logger.warning("Turnstile Siteverify request timed out")
+        return jsonify(ok=False, message=TURNSTILE_UNAVAILABLE_MESSAGE), 502
+    except requests.RequestException as error:
+        app.logger.warning(
+            "Turnstile Siteverify request failed: %s",
+            error.__class__.__name__,
+        )
+        return jsonify(ok=False, message=TURNSTILE_UNAVAILABLE_MESSAGE), 502
+    except ValueError:
+        app.logger.warning("Turnstile Siteverify returned invalid JSON")
+        return jsonify(ok=False, message=TURNSTILE_UNAVAILABLE_MESSAGE), 502
 
     if not verification.get("success"):
-        return jsonify(ok=False, message="Security check failed."), 400
+        error_codes = verification.get("error-codes") or []
+        safe_codes = ", ".join(str(code) for code in error_codes[:5])
+        app.logger.info(
+            "Turnstile rejected signup token: %s",
+            safe_codes or "unknown",
+        )
+        return jsonify(ok=False, message=TURNSTILE_FAILURE_MESSAGE), 400
 
     if User.query.filter_by(email=email).first():
         return jsonify(ok=False, message="Account already exists."), 409
@@ -227,49 +289,14 @@ def api_signup():
         ok=True,
         message="Account created successfully."
     ), 201
-def api_signup():
-    data = request.get_json(silent=True) or {}
 
-    name = data.get("name", "").strip()
-    email = data.get("email", "").strip().lower()
-    password = data.get("password", "")
 
-    if not name or not email or not password:
-        return jsonify({
-            "ok": False,
-            "message": "Name, email, and password are required."
-        }), 400
-
-    if len(password) < 8:
-        return jsonify({
-            "ok": False,
-            "message": "Password must be at least 8 characters."
-        }), 400
-
-    if User.query.filter_by(email=email).first():
-        return jsonify({
-            "ok": False,
-            "message": "Account already exists."
-        }), 409
-
-    user = User(
-        name=name,
-        email=email,
-        password_hash=generate_password_hash(password)
-    )
-
-    db.session.add(user)
-    db.session.commit()
-
-    return jsonify({
-        "ok": True,
-        "message": "Account created successfully."
-    }), 201
 @app.route("/api/login", methods=["POST"])
+@browser_csrf_protected
 def api_login():
     data = request.get_json(silent=True) or {}
-    email = data.get("email", "").strip().lower()
-    password = data.get("password", "")
+    email = str(data.get("email") or "").strip().lower()
+    password = str(data.get("password") or "")
 
     user = User.query.filter_by(email=email).first()
 
