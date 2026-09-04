@@ -389,3 +389,25 @@ def upload_avatar():
     db.session.commit()
     
     return jsonify({'success': True, 'avatar': filename})
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        user = User.query.filter_by(email=email).first()
+        
+        if user:
+            # Generate token and send email
+            token = user.generate_reset_token()
+            # Send email with reset link
+            flash('Password reset link sent to your email', 'success')
+        else:
+            flash('If that email exists, a reset link has been sent', 'info')
+        
+        return redirect(url_for('login'))
+    
+    return render_template('forgot_password.html')
+
+@app.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    # Verify token and allow password reset
+    pass
