@@ -822,3 +822,85 @@ def admin_delete_post(post_id):
     db.session.commit()
     flash('Post deleted', 'success')
     return redirect(url_for('admin_reports'))
+from forms import ProfileForm
+from werkzeug.utils import secure_filename
+import os
+
+@app.route('/profile/<username>')
+def profile(username):
+    user = User.query.filter_by(username=username).first_or_404()
+    
+    # Get recent activity
+    activities = UserActivity.query.filter_by(user_id=user.id)\
+        .order_by(UserActivity.created_at.desc()).limit(10).all()
+    
+    # Get user's posts
+    posts = CommunityPost.query.filter_by(user_id=user.id)\
+        .order_by(CommunityPost.created_at.desc()).limit(5).all()
+    
+    # Get user's favorite games
+    favorites = FavoriteGame.query.filter_by(user_id=user.id).limit(6).all()
+    
+    return render_template('profile.html', 
+                         user=user, 
+                         activities=activities,
+                         posts=posts,
+                         favorites=favorites)
+
+
+@app.route('/profile/edit', methods=['GET', 'POST'])
+@login_required
+def edit_profile():
+    form = ProfileForm(obj=current_user)
+    
+    if request.method == 'POST':
+        if form.validate_on_submit():
+            # Check if username is taken by someone else
+            existing = User.query.filter_by(username=form.username.data).first()
+            if existing and existing.id != current_user.id:
+                flash('Username already taken', 'error')
+                return render_template('edit_profile.html', form=form)
+            
+            current_user.username = form.username.data
+            current_user.bio = form.bio.data
+            
+            db.session.commit()
+            flash('Profile updated!', 'success')
+            return redirect(url_for('profile', username=current_user.username))
+    
+    return render_template('edit_profile.html', form=form)
+
+
+@app.route('/upload-avatar', methods=['POST'])
+@login_required
+def upload_avatar():
+    if 'avatar' not in request.files:
+        return jsonify({'error': 'No file uploaded'}), 400
+    
+    file = request.files['avatar']
+    
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+    
+    # Validate file type
+    allowed_extensions = {'png', 'jpg', 'jpeg', 'gif'}
+    if not file.filename.rsplit('.', 1)[1].lower() in allowed_extensions:
+        return jsonify({'error': 'Invalid file type. Use PNG, JPG, or GIF'}), 400
+    
+    # Generate unique filename
+    filename = f"avatar_{current_user.id}_{secrets.token_hex(8)}.{file.filename.rsplit('.', 1)[1].lower()}"
+    
+    # Save file
+    upload_folder = os.path.join('static', 'uploads', 'avatars')
+    os.makedirs(upload_folder, exist_ok=True)
+    filepath = os.path.join(upload_folder, filename)
+    file.save(filepath)
+    
+    # Update user
+    current_user.avatar = filename
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'avatar': url_for('static', filename=f'uploads/avatars/{filename}')
+    })
