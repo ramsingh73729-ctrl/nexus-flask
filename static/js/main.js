@@ -116,159 +116,189 @@ document.addEventListener("keydown", (event) => {
     }
   }
 });
-const signupModal = document.getElementById("signupModal");
-const openSignup = document.getElementById("openSignup");
-const closeSignup = document.getElementById("closeSignup");
-const signupForm = document.getElementById("signupForm");
-const signupStatus = document.getElementById("signupStatus");
+// Prevent duplicate form submissions
+let isSubmitting = false;
 
-function showSignup() {
-  if (!signupModal) return;
-
-  hideLogin();
-  signupModal.hidden = false;
-    if (window.turnstile && !signupModal.dataset.turnstileRendered) {
-  window.turnstile.ready(() => {
-    window.turnstile.render("#signupTurnstile", {
-      sitekey: document.getElementById("signupTurnstile").dataset.sitekey,
-      theme: "dark"
-    });
-    signupModal.dataset.turnstileRendered = "true";
-  });
-}
-  document.body.classList.add("modal-open");
-
-  document.getElementById("signupName")?.focus();
-}
-
-function hideSignup() {
-  if (!signupModal) return;
-
-  signupModal.hidden = true;
-  document.body.classList.remove("modal-open");
-}
-
-openSignup?.addEventListener("click", showSignup);
-closeSignup?.addEventListener("click", hideSignup);
-
-signupModal?.addEventListener("click", (event) => {
-  if (event.target === signupModal) {
-    hideSignup();
-  }
-});
-
-signupForm?.addEventListener("submit", async (event) => {
-  event.preventDefault();
-
-  const name = document.getElementById("signupName").value.trim();
-  const email = document.getElementById("signupEmail").value.trim();
-  const password = document.getElementById("signupPassword").value;
-  const confirmPassword = document.getElementById("signupConfirm").value;
-  const turnstileToken = signupForm.querySelector(
-    'input[name="cf-turnstile-response"]'
-  )?.value;
-
-  if (password !== confirmPassword) {
-    signupStatus.textContent = "Passwords do not match.";
-    return;
-  }
-
-  if (!turnstileToken) {
-    signupStatus.textContent = "Please complete the security check.";
-    return;
-  }
-
-  signupStatus.textContent = "CREATING ACCOUNT...";
-  signupStatus.className = "login-status";
-
-  try {
-    const response = await fetch("/api/register", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        name,
-        email,
-        password,
-        confirm_password: confirmPassword,
-        turnstile_token: turnstileToken
-      })
-    });
-
-    const result = await response.json();
-
-    signupStatus.textContent =
-      result.message || "Account created successfully.";
-
-    if (response.ok) {
-      signupStatus.className = "login-status success";
-      signupForm.reset();
-
-      if (window.turnstile) {
-        window.turnstile.reset();
-      }
-    } else {
-      signupStatus.className = "login-status";
-    }
-  } catch (error) {
-    signupStatus.textContent = "Network error. Please try again.";
-    signupStatus.className = "login-status";
-  }
-});
-
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && signupModal && !signupModal.hidden) {
-    hideSignup();
-  }
-});
-document.addEventListener('DOMContentLoaded', () => {
-    const signupForm = document.getElementById('signupForm');
-
+// Signup Form Handler
+document.addEventListener('DOMContentLoaded', function() {
+    const signupForm = document.querySelector('.signup-form');
+    
     if (signupForm) {
-        signupForm.addEventListener('submit', async (e) => {
+        signupForm.addEventListener('submit', async function(e) {
             e.preventDefault();
-
-            const submitBtn = signupForm.querySelector('button[type="submit"]');
-            if (submitBtn.disabled) return; // Prevent double trigger
-
-            // 1. Show loading state
+            
+            // Prevent duplicate submissions
+            if (isSubmitting) {
+                console.log('Already submitting, ignoring...');
+                return;
+            }
+            
+            isSubmitting = true;
+            
+            // Get form elements
+            const submitBtn = this.querySelector('button[type="submit"]');
             const originalBtnText = submitBtn.innerHTML;
+            
+            // Disable button and show loading
             submitBtn.disabled = true;
-            submitBtn.innerHTML = `<span class="spinner"></span> Creating Account...`;
-
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating Account...';
+            
+            // Get form data
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData);
+            
+            // Get CSRF token if using Flask-WTF
+            const csrfToken = this.querySelector('[name="csrf_token"]')?.value;
+            
             try {
-                const formData = new FormData(signupForm);
-                const response = await fetch('/api/signup', {
+                const response = await fetch('/signup', {
                     method: 'POST',
-                    body: formData
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken || ''
+                    },
+                    body: JSON.stringify(data)
                 });
-
-                const data = await response.json();
-
-                if (response.ok && data.success) {
-                    showNotification('Account created successfully! Redirecting...', 'success');
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    // Show success message
+                    showToast('Account created successfully! Redirecting...', 'success');
+                    
+                    // Redirect after short delay
                     setTimeout(() => {
-                        window.location.href = data.redirect || '/';
+                        window.location.href = result.redirect_url || '/login';
                     }, 1500);
                 } else {
-                    showNotification(data.message || 'Signup failed. Please try again.', 'error');
-                    // Reset Turnstile widget if present
-                    if (window.turnstile) {
-                        turnstile.reset();
-                    }
+                    // Show error
+                    showToast(result.error || 'Signup failed. Please try again.', 'error');
+                    
+                    // Re-enable button
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalBtnText;
                 }
-            } catch (err) {
-                console.error('Signup error:', err);
-                showNotification('An unexpected error occurred.', 'error');
-            } finally {
-                // 2. Restore button state
+            } catch (error) {
+                console.error('Signup error:', error);
+                showToast('Network error. Please check your connection.', 'error');
+                
+                // Re-enable button
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = originalBtnText;
+            } finally {
+                // Reset submission flag after delay
+                setTimeout(() => {
+                    isSubmitting = false;
+                }, 2000);
+            }
+        });
+    }
+    
+    // Login Form Handler (same pattern)
+    const loginForm = document.querySelector('.login-form');
+    
+    if (loginForm) {
+        loginForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            if (isSubmitting) return;
+            isSubmitting = true;
+            
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalBtnText = submitBtn.innerHTML;
+            
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Logging in...';
+            
+            const formData = new FormData(this);
+            const data = Object.fromEntries(formData);
+            const csrfToken = this.querySelector('[name="csrf_token"]')?.value;
+            
+            try {
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken || ''
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showToast('Login successful! Redirecting...', 'success');
+                    setTimeout(() => {
+                        window.location.href = result.redirect_url || '/';
+                    }, 1500);
+                } else {
+                    showToast(result.error || 'Login failed. Please check your credentials.', 'error');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalBtnText;
+                }
+            } catch (error) {
+                showToast('Network error. Please try again.', 'error');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnText;
+            } finally {
+                setTimeout(() => {
+                    isSubmitting = false;
+                }, 2000);
             }
         });
     }
 });
+
+// Toast notification function
+function showToast(message, type = 'info') {
+    // Remove existing toasts
+    document.querySelectorAll('.toast-notification').forEach(t => t.remove());
+    
+    const toast = document.createElement('div');
+    toast.className = `toast-notification toast-${type}`;
+    toast.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+        <span>${message}</span>
+    `;
+    
+    // Add styles if not already present
+    if (!document.getElementById('toast-styles')) {
+        const style = document.createElement('style');
+        style.id = 'toast-styles';
+        style.textContent = `
+            .toast-notification {
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                padding: 1rem 1.5rem;
+                border-radius: 8px;
+                color: white;
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                animation: slideInRight 0.3s ease;
+                z-index: 9999;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            }
+            .toast-success { background: linear-gradient(135deg, #10b981, #059669); }
+            .toast-error { background: linear-gradient(135deg, #ef4444, #dc2626); }
+            .toast-info { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+            @keyframes slideInRight {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    document.body.appendChild(toast);
+    
+    // Auto-remove after 4 seconds
+    setTimeout(() => {
+        toast.style.animation = 'slideInRight 0.3s ease reverse';
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
+}
 // Add at the top of your form handlers
 let isSubmitting = false;
 
