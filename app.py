@@ -192,247 +192,189 @@ def contact():
         }
     )
     return jsonify(status="ok", message="Signal received. Welcome to the network.")
-@app.route("/api/signup", methods=["POST"])
-@app.route("/api/register", methods=["POST"])
-def api_signup():
-    data = request.get_json(silent=True) or {}
+from forms import SignupForm, LoginForm, ForgotPasswordForm, ResetPasswordForm
+from models import User, UserActivity
+from datetime import timedelta
+import secrets
+
+# ... existing imports ...
+
+@app.route('/signup', methods=['GET', 'POST'])
+@limiter.limit("10 per minute")  # Prevent spam
+def signup():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
     
-    name = str(data.get("name") or "").strip()
-    email = str(data.get("email") or "").strip().lower()
-    password = str(data.get("password") or "")
-    confirm_password = str(data.get("confirm_password") or "")
-    turnstile_token = str(data.get("turnstile_token") or "").strip()
-
-    if not name or not email or not password or not confirm_password:
-        return jsonify(ok=False, message="All fields are required."), 400
-
-    if "@" not in email:
-        return jsonify(ok=False, message="Enter a valid email."), 400
-
-    if password != confirm_password:
-        return jsonify(ok=False, message="Passwords do not match."), 400
-
-    if len(password) < 8:
-        return jsonify(ok=False, message="Password must be at least 8 characters."), 400
-
-    secret = os.environ.get("TURNSTILE_SECRET_KEY", "").strip()
-
-    if not secret or not turnstile_token:
-        return jsonify(ok=False, message="Please complete the security check."), 400
-
-    try:
-        response = requests.post(
-            "https://challenges.cloudflare.com/turnstile/v0/siteverify",
-            data={"secret": secret, "response": turnstile_token},
-            timeout=10
-        )
-        verification = response.json()
-    except (requests.RequestException, ValueError):
-        return jsonify(ok=False, message="Security check unavailable."), 502
-
-    if not verification.get("success"):
-        return jsonify(ok=False, message="Security check failed."), 400
-
-    if User.query.filter_by(email=email).first():
-        return jsonify(ok=False, message="Account already exists."), 409
-
-    user = User(
-        name=name,
-        email=email,
-        password_hash=generate_password_hash(password)
-    )
-
-    db.session.add(user)
-    db.session.commit()
-
-    return jsonify(
-        ok=True,
-        message="Account created successfully."
-    ), 201
-def api_signup():
-    data = request.get_json(silent=True) or {}
-
-    name = data.get("name", "").strip()
-    email = data.get("email", "").strip().lower()
-    password = data.get("password", "")
-
-    if not name or not email or not password:
-        return jsonify({
-            "ok": False,
-            "message": "Name, email, and password are required."
-        }), 400
-
-    if len(password) < 8:
-        return jsonify({
-            "ok": False,
-            "message": "Password must be at least 8 characters."
-        }), 400
-
-    if User.query.filter_by(email=email).first():
-        return jsonify({
-            "ok": False,
-            "message": "Account already exists."
-        }), 409
-
-    user = User(
-        name=name,
-        email=email,
-        password_hash=generate_password_hash(password)
-    )
-
-    db.session.add(user)
-    db.session.commit()
-
-    return jsonify({
-        "ok": True,
-        "message": "Account created successfully."
-    }), 201
-@app.route("/api/login", methods=["POST"])
-def api_login():
-    data = request.get_json(silent=True) or {}
-    email = data.get("email", "").strip().lower()
-    password = data.get("password", "")
-
-    user = User.query.filter_by(email=email).first()
-
-    if not user or not user.password_hash:
-        return jsonify({
-            "ok": False,
-            "message": "Account not found."
-        }), 401
-
-    if not check_password_hash(user.password_hash, password):
-        return jsonify({
-            "ok": False,
-            "message": "Invalid email or password."
-        }), 401
-
-    session["user_id"] = user.id
-
-    return jsonify({
-        "ok": True,
-        "message": f"Welcome back, {user.name}!"
-    })
-@app.route("/auth/google")
-def google_login():
-    redirect_uri = "https://nexus-flask.onrender.com/auth/google/callback"
-    return oauth.google.authorize_redirect(redirect_uri)
-
-
-@app.route("/auth/google/callback")
-def google_callback():
-    token = oauth.google.authorize_access_token()
-    user_info = token["userinfo"]
-
-    email = user_info["email"].strip().lower()
-    google_id = user_info["sub"]
-    name = user_info.get("name") or email.split("@")[0]
-
-    user = User.query.filter_by(email=email).first()
-
-    if user is None:
-        user = User(
-            name=name,
-            email=email,
-            google_id=google_id
-        )
-        db.session.add(user)
-    else:
-        user.google_id = user.google_id or google_id
-
-    db.session.commit()
-    session["user_id"] = user.id
-
-    return redirect("/")
-
-
-@app.route("/logout")
-def logout():
-    session.clear()
-    return redirect("/")
-if __name__ == "__main__":
-    app.run(debug=True, host="127.0.0.1", port=5000)
-from flask_wtf import CSRFProtect
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
-
-app.config['WTF_CSRF_ENABLED'] = True
-app.config['WTF_CSRF_SECRET_KEY'] = os.environ.get('WTF_CSRF_SECRET_KEY', os.urandom(32).hex())
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(32).hex())
-
-csrf = CSRFProtect(app)
-limiter = Limiter(
-    app=app,
-    key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"]
-)
-@app.route('/profile/<username>')
-@login_required
-def profile(username):
-    user = User.query.filter_by(username=username).first_or_404()
-    recent_activity = UserActivity.query.filter_by(user_id=user.id)\
-        .order_by(UserActivity.timestamp.desc()).limit(10).all()
-    return render_template('profile.html', user=user, activity=recent_activity)
-
-@app.route('/profile/edit', methods=['GET', 'POST'])
-@login_required
-def edit_profile():
+    form = SignupForm()
+    
     if request.method == 'POST':
-        username = request.form.get('username')
-        bio = request.form.get('bio')
-        
-        # Validate
-        if len(username) < 3:
-            flash('Username must be at least 3 characters', 'error')
-        else:
-            current_user.username = username
-            current_user.bio = bio
+        if form.validate_on_submit():
+            # Check if user exists
+            existing_user = User.query.filter(
+                (User.username == form.username.data) | 
+                (User.email == form.email.data)
+            ).first()
+            
+            if existing_user:
+                if request.is_json:
+                    return jsonify({'error': 'Username or email already exists'}), 400
+                flash('Username or email already exists', 'error')
+                return render_template('index.html', form=form)
+            
+            # Create new user
+            user = User(
+                username=form.username.data,
+                email=form.email.data
+            )
+            user.set_password(form.password.data)
+            
+            db.session.add(user)
             db.session.commit()
-            flash('Profile updated!', 'success')
-            return redirect(url_for('profile', username=current_user.username))
-    
-    return render_template('edit_profile.html')
-
-@app.route('/upload-avatar', methods=['POST'])
-@login_required
-def upload_avatar():
-    if 'avatar' not in request.files:
-        return jsonify({'error': 'No file'}), 400
-    
-    file = request.files['avatar']
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
-    
-    # Save file logic here
-    filename = f"avatar_{current_user.id}_{secrets.token_hex(8)}.jpg"
-    file.save(os.path.join('static/uploads/avatars', filename))
-    
-    current_user.avatar = filename
-    db.session.commit()
-    
-    return jsonify({'success': True, 'avatar': filename})
-@app.route('/forgot-password', methods=['GET', 'POST'])
-def forgot_password():
-    if request.method == 'POST':
-        email = request.form.get('email')
-        user = User.query.filter_by(email=email).first()
+            
+            # Log activity
+            activity = UserActivity(
+                user_id=user.id,
+                action_type='signup',
+                xp_earned=50
+            )
+            user.add_xp(50)
+            db.session.add(activity)
+            db.session.commit()
+            
+            if request.is_json:
+                return jsonify({
+                    'success': True,
+                    'redirect_url': url_for('login')
+                })
+            
+            flash('Account created! Please login.', 'success')
+            return redirect(url_for('login'))
         
-        if user:
-            # Generate token and send email
-            token = user.generate_reset_token()
-            # Send email with reset link
-            flash('Password reset link sent to your email', 'success')
         else:
-            flash('If that email exists, a reset link has been sent', 'info')
-        
-        return redirect(url_for('login'))
+            # Form validation failed
+            errors = []
+            for field, field_errors in form.errors.items():
+                errors.extend(field_errors)
+            
+            if request.is_json:
+                return jsonify({'error': errors[0] if errors else 'Validation failed'}), 400
+            
+            for error in errors:
+                flash(error, 'error')
     
-    return render_template('forgot_password.html')
+    if request.is_json:
+        return jsonify({'error': 'Invalid request'}), 400
+    
+    return render_template('index.html', form=form)
+
+
+@app.route('/login', methods=['GET', 'POST'])
+@limiter.limit("10 per minute")
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    
+    form = LoginForm()
+    
+    if request.method == 'POST':
+        if form.validate_on_submit():
+            user = User.query.filter_by(email=form.email.data).first()
+            
+            if user and user.check_password(form.password.data):
+                login_user(user, remember=True)
+                
+                # Update login streak
+                streak = user.check_login_streak()
+                if streak > 1:
+                    bonus_xp = streak * 10
+                    user.add_xp(bonus_xp)
+                    
+                    # Log activity
+                    activity = UserActivity(
+                        user_id=user.id,
+                        action_type='login_streak',
+                        action_data={'streak': streak},
+                        xp_earned=bonus_xp
+                    )
+                    db.session.add(activity)
+                    db.session.commit()
+                
+                user.last_login = datetime.utcnow()
+                db.session.commit()
+                
+                if request.is_json:
+                    return jsonify({
+                        'success': True,
+                        'redirect_url': url_for('index')
+                    })
+                
+                flash(f'Welcome back, {user.username}! 🔥 Streak: {streak} days', 'success')
+                return redirect(url_for('index'))
+            else:
+                if request.is_json:
+                    return jsonify({'error': 'Invalid email or password'}), 400
+                flash('Invalid email or password', 'error')
+        else:
+            errors = []
+            for field, field_errors in form.errors.items():
+                errors.extend(field_errors)
+            
+            if request.is_json:
+                return jsonify({'error': errors[0] if errors else 'Validation failed'}), 400
+            
+            for error in errors:
+                flash(error, 'error')
+    
+    if request.is_json:
+        return jsonify({'error': 'Invalid request'}), 400
+    
+    return render_template('index.html', form=form)
+
+
+@app.route('/forgot-password', methods=['GET', 'POST'])
+@limiter.limit("5 per minute")
+def forgot_password():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    
+    form = ForgotPasswordForm()
+    
+    if request.method == 'POST':
+        if form.validate_on_submit():
+            user = User.query.filter_by(email=form.email.data).first()
+            
+            if user:
+                # Generate reset token
+                token = secrets.token_urlsafe(32)
+                
+                # Store token in database (add reset_token field to User model)
+                # For now, we'll use a simple approach
+                # In production, store hashed token with expiration
+                
+                # Send email (configure Flask-Mail)
+                # For now, just show success
+                flash('If that email exists, a password reset link has been sent', 'info')
+            
+            return redirect(url_for('login'))
+    
+    return render_template('auth/forgot_password.html', form=form)
+
 
 @app.route('/reset-password/<token>', methods=['GET', 'POST'])
+@limiter.limit("5 per minute")
 def reset_password(token):
     # Verify token and allow password reset
-    pass
+    # Implement token verification logic here
+    flash('Password reset functionality coming soon', 'info')
+    return redirect(url_for('login'))
+
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash('You have been logged out', 'info')
+    return redirect(url_for('index'))
 @app.route('/games')
 def games_index():
     # Get filters
