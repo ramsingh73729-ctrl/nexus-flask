@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+
+{% block title %}{{ user.username }} - Profile{% endblock %}
+
+{% block content %}
+<div class="profile-container">
+    <!-- Profile Header -->
+    <div class="profile-header">
+        <div class="profile-avatar">
+            <img src="{{ url_for('static', filename='uploads/avatars/' + user.avatar) if user.avatar != 'default_avatar.png' else url_for('static', filename='images/default_avatar.png') }}" 
+                 alt="{{ user.username }}" 
+                 class="avatar-image">
+            {% if current_user.is_authenticated and current_user.id == user.id %}
+            <button class="change-avatar-btn" onclick="document.getElementById('avatar-upload').click()">
+                <i class="fas fa-camera"></i>
+            </button>
+            <input type="file" id="avatar-upload" accept="image/*" style="display: none;" onchange="uploadAvatar(this)">
+            {% endif %}
+        </div>
+        
+        <div class="profile-info">
+            <h1 class="profile-username">{{ user.username }}</h1>
+            <div class="profile-meta">
+                <span class="level-badge">Level {{ user.level }}</span>
+                <span class="xp-bar">
+                    <span class="xp-fill" style="width: {{ (user.xp % 1000) / 10 }}%"></span>
+                </span>
+                <span>{{ user.xp % 1000 }}/1000 XP</span>
+            </div>
+            <p class="profile-bio">{{ user.bio or 'No bio yet' }}</p>
+            
+            {% if current_user.is_authenticated and current_user.id == user.id %}
+            <a href="{{ url_for('edit_profile') }}" class="btn btn-primary">
+                <i class="fas fa-edit"></i> Edit Profile
+            </a>
+            {% endif %}
+        </div>
+        
+        <div class="profile-stats">
+            <div class="stat-item">
+                <i class="fas fa-gamepad"></i>
+                <span class="stat-value">{{ user.games_played }}</span>
+                <span class="stat-label">Games Played</span>
+            </div>
+            <div class="stat-item">
+                <i class="fas fa-trophy"></i>
+                <span class="stat-value">{{ user.total_score }}</span>
+                <span class="stat-label">Total Score</span>
+            </div>
+            <div class="stat-item">
+                <i class="fas fa-fire"></i>
+                <span class="stat-value">{{ user.login_streak }}</span>
+                <span class="stat-label">Day Streak</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Activity Feed -->
+    <div class="profile-section">
+        <h3><i class="fas fa-history"></i> Recent Activity</h3>
+        {% if activities %}
+        <div class="activity-feed">
+            {% for activity in activities %}
+            <div class="activity-item">
+                <i class="fas fa-{{ 'gamepad' if activity.action_type == 'played_game' else 'comment' if activity.action_type == 'commented' else 'star' }}"></i>
+                <span>{{ activity.action_type|replace('_', ' ')|title }}</span>
+                <span class="activity-time">{{ activity.created_at.strftime('%B %d, %Y') }}</span>
+                {% if activity.xp_earned > 0 %}
+                <span class="xp-gained">+{{ activity.xp_earned }} XP</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty-state">No recent activity</p>
+        {% endif %}
+    </div>
+    
+    <!-- Favorite Games -->
+    <div class="profile-section">
+        <h3><i class="fas fa-heart"></i> Favorite Games</h3>
+        {% if favorites %}
+        <div class="games-grid">
+            {% for fav in favorites %}
+            <div class="game-card">
+                <a href="{{ url_for('game_detail', slug=fav.game.slug) }}">
+                    <img src="{{ fav.game.thumbnail }}" alt="{{ fav.game.title }}">
+                    <h4>{{ fav.game.title }}</h4>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty-state">No favorite games yet</p>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.profile-container {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+}
+
+.profile-header {
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.1), rgba(0, 100, 255, 0.1));
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    border-radius: 16px;
+    padding: 2rem;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 2rem;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.profile-avatar {
+    position: relative;
+}
+
+.avatar-image {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    border: 3px solid #00d4ff;
+    object-fit: cover;
+}
+
+.change-avatar-btn {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    background: #00d4ff;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.profile-username {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    color: #00d4ff;
+}
+
+.profile-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.level-badge {
+    background: linear-gradient(135deg, #00d4ff, #0066ff);
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: bold;
+}
+
+.xp-bar {
+    width: 150px;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.xp-fill {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, #00d4ff, #00ff88);
+    transition: width 0.3s;
+}
+
+.profile-stats {
+    display: flex;
+    gap: 2rem;
+}
+
+.stat-item {
+    text-align: center;
+}
+
+.stat-value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #00d4ff;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: #888;
+}
+
+.profile-section {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.profile-section h3 {
+    margin-bottom: 1rem;
+    color: #00d4ff;
+}
+
+.activity-feed {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.activity-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+}
+
+.xp-gained {
+    margin-left: auto;
+    color: #00ff88;
+    font-weight: bold;
+}
+
+.games-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 1rem;
+}
+
+.game-card img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    border-radius: 8px;
+    transition: transform 0.3s;
+}
+
+.game-card:hover img {
+    transform: scale(1.05);
+}
+
+@media (max-width: 768px) {
+    .profile-header {
+        grid-template-columns: 1fr;
+        text-align: center;
+    }
+    
+    .profile-stats {
+        justify-content: center;
+    }
+}
+</style>
+
+<script>
+async function uploadAvatar(input) {
+    const file = input.files[0];
+    if (!file) return;
+    
+    const formData = new FormData();
+    formData.append('avatar', file);
+    
+    try {
+        const response = await fetch('/upload-avatar', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            document.querySelector('.avatar-image').src = result.avatar;
+            showToast('Avatar updated!', 'success');
+        } else {
+            showToast(result.error || 'Upload failed', 'error');
+        }
+    } catch (error) {
+        showToast('Upload error', 'error');
+    }
+}
+</script>
+{% endblock %}
