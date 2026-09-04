@@ -158,3 +158,58 @@ class PostReport(db.Model):
     post_id = db.Column(db.Integer, db.ForeignKey('community_post.id'), nullable=False)
     reason = db.Column(db.String(500))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+class Event(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(300), nullable=False)
+    slug = db.Column(db.String(300), unique=True, nullable=False)
+    description = db.Column(db.Text)
+    image = db.Column(db.String(256))
+    
+    # Event type
+    event_type = db.Column(db.String(50))  # 'tournament', 'challenge', 'giveaway'
+    game_id = db.Column(db.Integer, db.ForeignKey('game.id'))
+    
+    # Timing
+    start_date = db.Column(db.DateTime, nullable=False)
+    end_date = db.Column(db.DateTime, nullable=False)
+    registration_deadline = db.Column(db.DateTime)
+    
+    # Tournament settings
+    max_participants = db.Column(db.Integer)
+    current_participants = db.Column(db.Integer, default=0)
+    prize_pool = db.Column(db.String(200))
+    entry_fee = db.Column(db.Integer, default=0)
+    
+    # Status
+    status = db.Column(db.String(20), default='upcoming')  # upcoming, active, completed
+    is_featured = db.Column(db.Boolean, default=False)
+    
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    participants = db.relationship('EventParticipant', backref='event', lazy='dynamic')
+    leaderboard = db.relationship('LeaderboardEntry', backref='event', lazy='dynamic')
+
+class EventParticipant(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    event_id = db.Column(db.Integer, db.ForeignKey('event.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    
+    registered_at = db.Column(db.DateTime, default=datetime.utcnow)
+    score = db.Column(db.Integer, default=0)
+    rank = db.Column(db.Integer)
+    
+    user = db.relationship('User', backref='event_participations')
+    
+    __table_args__ = (db.UniqueConstraint('event_id', 'user_id', name='unique_event_participant'),)
+
+class LeaderboardEntry(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    event_id = db.Column(db.Integer, db.ForeignKey('event.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    
+    score = db.Column(db.Integer, default=0)
+    rank = db.Column(db.Integer)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    user = db.relationship('User')
