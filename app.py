@@ -344,3 +344,48 @@ limiter = Limiter(
     key_func=get_remote_address,
     default_limits=["200 per day", "50 per hour"]
 )
+@app.route('/profile/<username>')
+@login_required
+def profile(username):
+    user = User.query.filter_by(username=username).first_or_404()
+    recent_activity = UserActivity.query.filter_by(user_id=user.id)\
+        .order_by(UserActivity.timestamp.desc()).limit(10).all()
+    return render_template('profile.html', user=user, activity=recent_activity)
+
+@app.route('/profile/edit', methods=['GET', 'POST'])
+@login_required
+def edit_profile():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        bio = request.form.get('bio')
+        
+        # Validate
+        if len(username) < 3:
+            flash('Username must be at least 3 characters', 'error')
+        else:
+            current_user.username = username
+            current_user.bio = bio
+            db.session.commit()
+            flash('Profile updated!', 'success')
+            return redirect(url_for('profile', username=current_user.username))
+    
+    return render_template('edit_profile.html')
+
+@app.route('/upload-avatar', methods=['POST'])
+@login_required
+def upload_avatar():
+    if 'avatar' not in request.files:
+        return jsonify({'error': 'No file'}), 400
+    
+    file = request.files['avatar']
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+    
+    # Save file logic here
+    filename = f"avatar_{current_user.id}_{secrets.token_hex(8)}.jpg"
+    file.save(os.path.join('static/uploads/avatars', filename))
+    
+    current_user.avatar = filename
+    db.session.commit()
+    
+    return jsonify({'success': True, 'avatar': filename})
