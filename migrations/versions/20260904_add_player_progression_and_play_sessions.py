@@ -20,7 +20,34 @@ def _user_table(bind):
         return "user"
     if "users" in tables:
         return "users"
-    raise RuntimeError("The existing user table was not found; migration stopped safely.")
+
+    # The first deployment used an opt-in db.create_all() and therefore some
+    # Render databases have no schema yet. Create the current user table only
+    # when it is genuinely absent; existing data and tables are untouched.
+    op.create_table(
+        "user",
+        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("name", sa.String(length=120), nullable=False),
+        sa.Column("email", sa.String(length=255), nullable=False),
+        sa.Column("password_hash", sa.String(length=255), nullable=True),
+        sa.Column("google_id", sa.String(length=255), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("avatar_url", sa.String(length=500), nullable=True),
+        sa.Column("total_xp", sa.Integer(), nullable=False, server_default="0"),
+        sa.Column("level", sa.Integer(), nullable=False, server_default="1"),
+        sa.Column(
+            "current_login_streak",
+            sa.Integer(),
+            nullable=False,
+            server_default="0",
+        ),
+        sa.Column("last_activity_date", sa.Date(), nullable=True),
+        sa.Column("last_reward_claimed_date", sa.Date(), nullable=True),
+        sa.UniqueConstraint("email", name="uq_user_email"),
+        sa.UniqueConstraint("google_id", name="uq_user_google_id"),
+    )
+    op.create_index("ix_user_email", "user", ["email"], unique=False)
+    return "user"
 
 
 def upgrade():
