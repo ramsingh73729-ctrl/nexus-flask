@@ -791,3 +791,70 @@ def create_notification(user_id, type, message, actor_id=None, **kwargs):
     db.session.add(notif)
     db.session.commit()
     return notif
+from functools import wraps
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated or not current_user.is_admin:
+            abort(403)
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route('/admin')
+@admin_required
+def admin_dashboard():
+    # Stats
+    total_users = User.query.count()
+    total_games = Game.query.count()
+    total_posts = CommunityPost.query.count()
+    total_events = Event.query.count()
+    
+    # Recent activity
+    recent_users = User.query.order_by(User.created_at.desc()).limit(10).all()
+    reported_posts = CommunityPost.query.filter_by(is_reported=True).all()
+    
+    return render_template('admin/dashboard.html',
+                         total_users=total_users,
+                         total_games=total_games,
+                         total_posts=total_posts,
+                         total_events=total_events,
+                         recent_users=recent_users,
+                         reported_posts=reported_posts)
+
+@app.route('/admin/users')
+@admin_required
+def admin_users():
+    page = request.args.get('page', 1, type=int)
+    users = User.query.order_by(User.created_at.desc()).paginate(page=page, per_page=20)
+    return render_template('admin/users.html', users=users)
+
+@app.route('/admin/user/<int:user_id>/toggle-admin', methods=['POST'])
+@admin_required
+def toggle_admin(user_id):
+    user = User.query.get_or_404(user_id)
+    user.is_admin = not user.is_admin
+    db.session.commit()
+    flash(f'{user.username} is now {"admin" if user.is_admin else "user"}', 'success')
+    return redirect(url_for('admin_users'))
+
+@app.route('/admin/games')
+@admin_required
+def admin_games():
+    games = Game.query.order_by(Game.created_at.desc()).all()
+    return render_template('admin/games.html', games=games)
+
+@app.route('/admin/reports')
+@admin_required
+def admin_reports():
+    reports = PostReport.query.order_by(PostReport.created_at.desc()).all()
+    return render_template('admin/reports.html', reports=reports)
+
+@app.route('/admin/post/<int:post_id>/delete', methods=['POST'])
+@admin_required
+def admin_delete_post(post_id):
+    post = CommunityPost.query.get_or_404(post_id)
+    db.session.delete(post)
+    db.session.commit()
+    flash('Post deleted', 'success')
+    return redirect(url_for('admin_reports'))
