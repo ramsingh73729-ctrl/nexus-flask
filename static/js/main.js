@@ -269,3 +269,30 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+// Add at the top of your form handlers
+let isSubmitting = false;
+
+function handleFormSubmit(formElement) {
+    if (isSubmitting) {
+        return false; // Prevent duplicate
+    }
+    isSubmitting = true;
+    
+    // Disable button
+    const btn = formElement.querySelector('button[type="submit"]');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+    }
+    
+    // Your existing AJAX code here...
+    
+    // Reset on completion (success or error)
+    setTimeout(() => {
+        isSubmitting = false;
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = 'Sign Up';
+        }
+    }, 2000);
+}
