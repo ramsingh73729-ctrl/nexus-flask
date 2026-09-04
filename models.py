@@ -2,6 +2,143 @@ from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 import secrets
+from datetime import datetime
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_login import UserMixin
+import secrets
+
+class User(UserMixin, db.Model):
+    __tablename__ = 'users'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False, index=True)
+    email = db.Column(db.String(120), unique=True, nullable=False, index=True)
+    password_hash = db.Column(db.String(256), nullable=False)
+    
+    # Profile fields
+    avatar = db.Column(db.String(256), default='default_avatar.png')
+    bio = db.Column(db.Text, default='')
+    
+    # Gamification
+    level = db.Column(db.Integer, default=1)
+    xp = db.Column(db.Integer, default=0)
+    login_streak = db.Column(db.Integer, default=0)
+    last_login_date = db.Column(db.Date)
+    
+    # Account status
+    is_verified = db.Column(db.Boolean, default=False)
+    is_admin = db.Column(db.Boolean, default=False)
+    is_premium = db.Column(db.Boolean, default=False)
+    
+    # Stats
+    games_played = db.Column(db.Integer, default=0)
+    total_score = db.Column(db.Integer, default=0)
+    posts_count = db.Column(db.Integer, default=0)
+    comments_count = db.Column(db.Integer, default=0)
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_login = db.Column(db.DateTime)
+    
+    # Relationships
+    favorite_games = db.relationship('FavoriteGame', backref='user', lazy='dynamic', cascade='all, delete-orphan')
+    reviews = db.relationship('Review', backref='user', lazy='dynamic', cascade='all, delete-orphan')
+    posts = db.relationship('CommunityPost', backref='user', lazy='dynamic', cascade='all, delete-orphan')
+    notifications = db.relationship('Notification', backref='user', lazy='dynamic', cascade='all, delete-orphan')
+    event_participations = db.relationship('EventParticipant', backref='user', lazy='dynamic', cascade='all, delete-orphan')
+    
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+    
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+    
+    def generate_reset_token(self, expiration=3600):
+        """Generate password reset token"""
+        return secrets.token_urlsafe(32)
+    
+    def add_xp(self, amount):
+        """Add XP and handle level up"""
+        self.xp += amount
+        # Level up every 1000 XP
+        new_level = (self.xp // 1000) + 1
+        if new_level > self.level:
+            self.level = new_level
+            # Could trigger achievement here
+        return self.level
+    
+    def check_login_streak(self):
+        """Update login streak"""
+        today = datetime.utcnow().date()
+        if self.last_login_date == today:
+            return self.login_streak  # Already logged in today
+        
+        yesterday = today - timedelta(days=1)
+        if self.last_login_date == yesterday:
+            self.login_streak += 1
+        else:
+            self.login_streak = 1  # Reset streak
+        
+        self.last_login_date = today
+        self.last_login = datetime.utcnow()
+        return self.login_streak
+    
+    def __repr__(self):
+        return f'<User {self.username}>'
+
+
+# Add these new models below User class
+
+class UserActivity(db.Model):
+    """Track user actions for activity feed"""
+    __tablename__ = 'user_activities'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    action_type = db.Column(db.String(50), nullable=False)  # 'played_game', 'posted', 'commented', 'level_up'
+    action_data = db.Column(db.JSON)  # Store extra info like game_id, post_id
+    xp_earned = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    
+    user = db.relationship('User', backref='activities')
+    
+    def __repr__(self):
+        return f'<UserActivity {self.user_id} - {self.action_type}>'
+
+
+class Achievement(db.Model):
+    """Achievement badges"""
+    __tablename__ = 'achievements'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    icon = db.Column(db.String(100))  # Font Awesome icon class
+    xp_reward = db.Column(db.Integer, default=100)
+    requirement = db.Column(db.Integer)  # e.g., play 10 games, post 50 times
+    
+    # Relationships
+    unlocks = db.relationship('UserAchievement', backref='achievement', lazy='dynamic', cascade='all, delete-orphan')
+    
+    def __repr__(self):
+        return f'<Achievement {self.name}>'
+
+
+class UserAchievement(db.Model):
+    """User's unlocked achievements"""
+    __tablename__ = 'user_achievements'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    achievement_id = db.Column(db.Integer, db.ForeignKey('achievements.id'), nullable=False)
+    unlocked_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    user = db.relationship('User', backref='unlocked_achievements')
+    
+    __table_args__ = (db.UniqueConstraint('user_id', 'achievement_id', name='unique_user_achievement'),)
+    
+    def __repr__(self):
+        return f'<UserAchievement {self.user_id} - {self.achievement_id}>'
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
