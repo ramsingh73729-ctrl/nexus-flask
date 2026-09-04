@@ -110,10 +110,20 @@
         <nav class="nav container" aria-label="Primary navigation">
           <a class="logo" href="#top" aria-label="Nexus home"><span class="logo-mark"><i></i><i></i><i></i></span><span>NEXUS<span class="logo-muted"> // PLAY</span></span></a>
           <div class="nav-links" id="nav-links"><a href="#games">Games</a><a href="#community">Community</a><a href="#events">Events <span class="nav-dot"></span></a></div>
-          <div class="nav-actions"><button class="login-button" id="openLogin" type="button">Log in</button><a class="button button-small button-outline" href="#download">Download <span>↗</span></a><button class="menu-toggle" type="button" aria-label="Open menu" aria-expanded="false"><span></span><span></span></button></div>
-       <button class="login-button" id="openSignup" type="button">
-  Create account
-</button> </nav>
+          <div class="nav-actions">
+            {% if current_user %}
+              <a class="button button-small button-outline" href="{{ url_for('dashboard') }}">Dashboard <span>↗</span></a>
+              <a class="login-button" href="{{ url_for('logout') }}">Log out</a>
+            {% else %}
+              <button class="login-button" id="openLogin" type="button">Log in</button>
+              <a class="button button-small button-outline" href="#download">Download <span>↗</span></a>
+            {% endif %}
+            <button class="menu-toggle" type="button" aria-label="Open menu" aria-expanded="false"><span></span><span></span></button>
+          </div>
+          {% if not current_user %}
+            <button class="login-button" id="openSignup" type="button">Create account</button>
+          {% endif %}
+        </nav>
       </header>
 
       <main>
@@ -156,14 +166,8 @@
         <section class="download section container" id="download"><div class="download-panel reveal"><div class="download-glow"></div><div class="download-copy"><p class="section-kicker">04 / Your portal</p><h2>Ready when<br /><em>you are.</em></h2><p>One download. Every world. Jump into the Nexus and find your people.</p><div class="download-actions"><button class="button button-primary download-button" type="button">Download Nexus <span>↗</span></button><span>Windows 10+ / macOS 12+</span></div><p class="download-status" aria-live="polite"></p></div><div class="download-object" aria-hidden="true"><div class="download-ring ring-one"></div><div class="download-ring ring-two"></div><div class="download-disc"><span>N</span></div></div></div></section>
       </main>
 
-</body>
-</html>
       <footer class="footer container"><div class="footer-main"><a class="logo" href="#top"><span class="logo-mark"><i></i><i></i><i></i></span><span>NEXUS<span class="logo-muted"> // PLAY</span></span></a><p>Make your own rules.<br />Stay curious.</p><div class="footer-links"><a href="#games">Games</a><a href="#community">Community</a><a href="#events">Events</a><a href="#download">Support</a></div><a class="social-link" href="#community">◉ Join Discord</a></div><div class="footer-bottom"><span>© 2026 Nexus Interactive</span><span>Built for the curious <i>✦</i></span><div><a href="#top">Privacy</a><a href="#top">Terms</a></div></div></footer>
-
-</body>
-</html>
       <div class="modal-backdrop" id="trailer-modal" hidden><div class="trailer-modal" role="dialog" aria-modal="true" aria-label="Nexus trailer"><button class="modal-close" type="button" aria-label="Close trailer">×</button><div class="trailer-screen"><span>NEXUS // LIVE FEED</span><strong>THE EDGE<br /><em>IS YOURS.</em></strong><button class="trailer-play" type="button" aria-label="Play trailer">▶</button><small>01:46 / SIGNAL LOCKED</small></div></div></div>
     </div>
-   
   </body>
 </html>
