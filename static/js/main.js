@@ -222,3 +222,50 @@ document.addEventListener("keydown", (event) => {
     hideSignup();
   }
 });
+document.addEventListener('DOMContentLoaded', () => {
+    const signupForm = document.getElementById('signupForm');
+
+    if (signupForm) {
+        signupForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const submitBtn = signupForm.querySelector('button[type="submit"]');
+            if (submitBtn.disabled) return; // Prevent double trigger
+
+            // 1. Show loading state
+            const originalBtnText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `<span class="spinner"></span> Creating Account...`;
+
+            try {
+                const formData = new FormData(signupForm);
+                const response = await fetch('/api/signup', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    showNotification('Account created successfully! Redirecting...', 'success');
+                    setTimeout(() => {
+                        window.location.href = data.redirect || '/';
+                    }, 1500);
+                } else {
+                    showNotification(data.message || 'Signup failed. Please try again.', 'error');
+                    // Reset Turnstile widget if present
+                    if (window.turnstile) {
+                        turnstile.reset();
+                    }
+                }
+            } catch (err) {
+                console.error('Signup error:', err);
+                showNotification('An unexpected error occurred.', 'error');
+            } finally {
+                // 2. Restore button state
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnText;
+            }
+        });
+    }
+});
