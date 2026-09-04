@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}NEXUS // Player dashboard{% endblock %}
+{% block body_class %}dashboard-page{% endblock %}
+
+{% block content %}
+<section class="dashboard-main container">
+  <div class="dashboard-hero panel reveal">
+    <div>
+      <p class="section-kicker">NXS / PLAYER COMMAND</p>
+      <h1>Welcome back,<br /><em>{{ user.name }}</em></h1>
+      <p class="dashboard-lede">Your next run is waiting on the edge. Track your signal, claim today’s reward, and keep moving.</p>
+      <div class="dashboard-actions">
+        <a class="button button-primary" href="{{ url_for('neon_runner') }}">Play Neon Runner <span>↗</span></a>
+        <a class="button button-ghost" href="{{ url_for('home') }}#games">Explore worlds <span>↗</span></a>
+      </div>
+    </div>
+    <div class="player-badge" aria-label="Player identity">
+      <div class="player-avatar" aria-hidden="true">
+        {% if user.avatar_url %}
+          <img src="{{ user.avatar_url }}" alt="" />
+        {% else %}
+          <span>{{ user.name[:1]|upper }}</span>
+        {% endif %}
+      </div>
+      <span class="eyebrow">ONLINE / PLAYER</span>
+      <strong id="dashboardLevel">LVL {{ user.level }}</strong>
+      <small>{{ user.email }}</small>
+    </div>
+  </div>
+
+  <div class="dashboard-grid">
+    <section class="panel progression-panel" aria-labelledby="progress-title">
+      <div class="panel-heading">
+        <div>
+          <p class="section-kicker">01 / Progression</p>
+          <h2 id="progress-title">Signal <em>status.</em></h2>
+        </div>
+        <span class="panel-code">NXS-{{ "%04d"|format(user.id) }}</span>
+      </div>
+      {% set level_floor = (user.level - 1) * 100 %}
+      {% set level_xp = user.total_xp - level_floor %}
+      {% set xp_percent = [level_xp, 100]|min %}
+      <div class="level-line"><strong id="dashboardLevelLine">LEVEL {{ user.level }}</strong><span id="dashboardXp">{{ user.total_xp }} TOTAL XP</span></div>
+      <div class="xp-track" aria-label="{{ level_xp }} XP toward next level"><span id="dashboardXpTrack" style="width: {{ xp_percent }}%"></span></div>
+      <div class="stat-strip">
+        <div><strong id="dashboardTotalXp">{{ user.total_xp }}</strong><span>Total XP</span></div>
+        <div><strong id="dashboardStreak">{{ user.current_login_streak }}</strong><span>Day streak</span></div>
+        <div><strong id="dashboard-run-count">{{ user.play_sessions.count() }}</strong><span>Runs logged</span></div>
+      </div>
+    </section>
+
+    <section class="panel reward-panel" aria-labelledby="reward-title">
+      <p class="section-kicker">02 / Daily signal</p>
+      <h2 id="reward-title">Claim your<br /><em>daily drop.</em></h2>
+      <p>Keep your streak alive with a small XP boost, secured once per UTC day.</p>
+      <button class="button button-primary reward-button" id="claimReward" type="button" {% if not reward_available %}disabled{% endif %}>
+        {% if reward_available %}Claim +25 XP{% else %}Claimed for today{% endif %}
+      </button>
+      <p class="inline-status" id="rewardStatus" role="status" aria-live="polite"></p>
+    </section>
+  </div>
+
+  <div class="dashboard-grid dashboard-grid-lower">
+    <section class="panel activity-panel" aria-labelledby="activity-title">
+      <div class="panel-heading">
+        <div>
+          <p class="section-kicker">03 / Activity feed</p>
+          <h2 id="activity-title">Recent <em>signals.</em></h2>
+        </div>
+        <span class="panel-code">LIVE</span>
+      </div>
+      <div class="activity-list" id="activityList">
+        {% if activities %}
+          {% for activity in activities %}
+            <article class="activity-item">
+              <span class="activity-mark">✦</span>
+              <div><strong>{{ activity.description }}</strong><small>{{ activity.created_at.strftime('%d %b %Y · %H:%M UTC') }}{% if activity.xp_earned %} · +{{ activity.xp_earned }} XP{% endif %}</small></div>
+            </article>
+          {% endfor %}
+        {% else %}
+          <div class="empty-state compact-empty"><span>◌</span><strong>No signals yet.</strong><p>Play your first Neon Runner session and your activity will appear here.</p></div>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="panel leaderboard-panel" aria-labelledby="leaderboard-title">
+      <div class="panel-heading">
+        <div>
+          <p class="section-kicker">04 / Neon Runner</p>
+          <h2 id="leaderboard-title">Top <em>signals.</em></h2>
+        </div>
+        <a class="panel-link" href="{{ url_for('neon_runner') }}">Play ↗</a>
+      </div>
+      <div class="leaderboard-list" id="dashboardLeaderboard">
+        {% if leaderboard %}
+          {% for entry in leaderboard %}
+            <div class="leaderboard-row"><span>#{{ entry.rank }}</span><strong>{{ entry.name }}</strong><b>{{ entry.score }}</b></div>
+          {% endfor %}
+        {% else %}
+          <div class="empty-state compact-empty"><span>⌁</span><strong>Board is open.</strong><p>Be the first player to lock in a score.</p></div>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+
+  <section class="panel library-panel" aria-labelledby="library-title">
+    <div class="panel-heading">
+      <div>
+        <p class="section-kicker">05 / Player library</p>
+        <h2 id="library-title">Your <em>vault.</em></h2>
+      </div>
+      <span class="panel-code">0 SAVED</span>
+    </div>
+    <div class="empty-state library-empty">
+      <span class="empty-orbit">✦</span>
+      <strong>Your library is clear.</strong>
+      <p>Saved games and personal collections will land here as the NEXUS grows.</p>
+      <a class="button button-outline" href="{{ url_for('home') }}#games">Find a game <span>↗</span></a>
+    </div>
+  </section>
+
+  <section class="empty-event-panel" aria-label="Events coming soon">
+    <div><p class="section-kicker">06 / Events channel</p><h2>Next signal<br /><em>loading.</em></h2></div>
+    <p>Events are not connected to the player dashboard yet. This space is reserved for future NEXUS drops and competitions.</p>
+  </section>
+</section>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
+{% endblock %}
