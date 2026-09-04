@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}NEXUS // Neon Runner{% endblock %}
+{% block body_class %}runner-page{% endblock %}
+
+{% block content %}
+<section class="runner-main container">
+  <div class="runner-heading">
+    <div>
+      <p class="section-kicker">NXS / PLAY ZONE 01</p>
+      <h1>Neon <em>Runner.</em></h1>
+      <p>Shift through the signal. Dodge the static. Bank the highest verified run.</p>
+    </div>
+    <a class="button button-ghost" href="{{ url_for('dashboard') }}">← Dashboard</a>
+  </div>
+
+  <div class="runner-layout">
+    <section class="game-panel panel" aria-labelledby="game-title">
+      <div class="game-toolbar">
+        <div><span class="status-dot cyan"></span><span id="gameStatus">READY / AWAITING RUN</span></div>
+        <div class="game-toolbar-actions">
+          <button class="icon-button" id="soundToggle" type="button" aria-pressed="false">Sound: off</button>
+          <button class="icon-button" id="pauseGame" type="button" disabled>Pause</button>
+        </div>
+      </div>
+      <div class="game-stage">
+        <canvas id="neonRunnerCanvas" width="960" height="540" aria-label="Neon Runner game area"></canvas>
+        <div class="game-overlay" id="gameOverlay">
+          <span class="section-kicker">READY PLAYER</span>
+          <h2 id="game-title">Run the<br /><em>signal.</em></h2>
+          <p>Use A/D or arrow keys. On mobile, hold the lane buttons below.</p>
+          <button class="button button-primary" id="startGame" type="button">Start run <span>↗</span></button>
+        </div>
+      </div>
+      <div class="game-hud" aria-live="polite">
+        <div><span>Score</span><strong id="gameScore">000000</strong></div>
+        <div><span>Distance</span><strong id="gameDistance">0000m</strong></div>
+        <div><span>Run time</span><strong id="gameTimer">00:00</strong></div>
+      </div>
+      <div class="touch-controls" aria-label="Touch controls">
+        <button class="button button-outline" id="moveLeft" type="button">← Shift left</button>
+        <button class="button button-outline" id="moveRight" type="button">Shift right →</button>
+      </div>
+      <p class="game-message" id="gameMessage" role="status" aria-live="polite"></p>
+    </section>
+
+    <aside class="runner-side">
+      <section class="panel instruction-panel">
+        <p class="section-kicker">How to play</p>
+        <h2>Stay in<br /><em>the lane.</em></h2>
+        <ul class="instruction-list">
+          <li><span>01</span><p>Start a server-tracked run.</p></li>
+          <li><span>02</span><p>Move left and right to dodge blocks.</p></li>
+          <li><span>03</span><p>Crash or finish, then secure your score once.</p></li>
+        </ul>
+        <small class="anti-cheat-note">Scores are checked against the run session and time window. Client-side games cannot guarantee perfect anti-cheat.</small>
+      </section>
+      <section class="panel runner-board-panel">
+        <div class="panel-heading"><div><p class="section-kicker">Global board</p><h2>High <em>signal.</em></h2></div></div>
+        <div class="leaderboard-list" id="runnerLeaderboard"><div class="empty-state compact-empty"><span>⌁</span><strong>Scanning board…</strong></div></div>
+      </section>
+    </aside>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{{ url_for('static', filename='js/neon-runner.js') }}" defer></script>
+{% endblock %}
