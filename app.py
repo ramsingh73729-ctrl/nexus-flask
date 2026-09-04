@@ -37,7 +37,22 @@ app.config["SECRET_KEY"] = os.environ.get(
     "SECRET_KEY",
     "dev-secret-change-this"
 )
+# Security configuration
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.urandom(32).hex())
+app.config['WTF_CSRF_ENABLED'] = True
+app.config['WTF_CSRF_SECRET_KEY'] = os.environ.get('WTF_CSRF_SECRET_KEY', os.urandom(32).hex())
+app.config['WTF_CSRF_TIME_LIMIT'] = 3600  # 1 hour
 
+# Rate limiting
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://"
+)
+
+# Initialize CSRF protection
+csrf = CSRFProtect(app)
 database_url = os.environ.get("DATABASE_URL", "sqlite:///nexus.db")
 
 if database_url.startswith("postgres://"):
