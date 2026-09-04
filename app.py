@@ -741,3 +741,53 @@ def update_leaderboard(event_id):
     db.session.commit()
     
     return jsonify({'success': True, 'rank': entry.rank, 'score': entry.score})
+@app.route('/notifications')
+@login_required
+def notifications():
+    unread = Notification.query.filter_by(
+        user_id=current_user.id,
+        is_read=False
+    ).order_by(Notification.created_at.desc()).limit(20).all()
+    
+    all_notifs = Notification.query.filter_by(
+        user_id=current_user.id
+    ).order_by(Notification.created_at.desc()).paginate(page=1, per_page=50)
+    
+    return render_template('notifications.html', unread=unread, all=all_notifs)
+
+@app.route('/api/notification/<int:notif_id>/read', methods=['POST'])
+@login_required
+def mark_notification_read(notif_id):
+    notif = Notification.query.filter_by(
+        id=notif_id,
+        user_id=current_user.id
+    ).first_or_404()
+    
+    notif.is_read = True
+    db.session.commit()
+    
+    return jsonify({'success': True})
+
+@app.route('/api/notifications/read-all', methods=['POST'])
+@login_required
+def mark_all_read():
+    Notification.query.filter_by(
+        user_id=current_user.id,
+        is_read=False
+    ).update({'is_read': True})
+    db.session.commit()
+    
+    return jsonify({'success': True})
+
+# Helper function to create notifications
+def create_notification(user_id, type, message, actor_id=None, **kwargs):
+    notif = Notification(
+        user_id=user_id,
+        type=type,
+        message=message,
+        actor_id=actor_id,
+        **kwargs
+    )
+    db.session.add(notif)
+    db.session.commit()
+    return notif
