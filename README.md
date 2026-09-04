@@ -1,6 +1,6 @@
 # NEXUS — Flask gaming platform
 
-An immersive gaming platform landing page built with Python/Flask and a Motion-powered frontend.
+An immersive gaming platform built with Python/Flask and a futuristic dark gaming frontend.
 
 ## Run locally on macOS
 
@@ -25,7 +25,50 @@ Open `http://127.0.0.1:5000`.
 - Flask contact and download API endpoints
 - JSON health check and games endpoint
 
-Motion is loaded in `static/js/main.js` using its browser ESM build. Flask is the backend and template renderer.
+Flask is the backend and template renderer. Player pages reuse the same NEXUS design tokens and load one shared `static/js/main.js` plus one page-specific script.
+
+## Phase 2: Player dashboard and Play Zone
+
+The active Phase 2 flow adds a protected player command center and the first
+playable experience without changing the existing landing page or authentication
+model:
+
+- `/dashboard` — player level, XP, login streak, daily reward, activity, library, and leaderboard preview.
+- `/play/neon-runner` — a keyboard- and touch-friendly browser game.
+- `/api/play/neon-runner/start` — creates a short-lived server-tracked run session.
+- `/api/play/neon-runner/score` — accepts one score for a valid session and applies limited XP.
+- `/api/daily-reward` — idempotent once-per-UTC-day reward claim.
+- `/api/leaderboard?game=neon-runner` — verified completed runs only.
+
+Scores are checked against the player session and elapsed time. This is a
+practical abuse check for a browser game, not a claim of perfect anti-cheat.
+
+### Database migration
+
+The application no longer runs `db.create_all()` automatically in production.
+After installing requirements and configuring `DATABASE_URL`, apply the safe
+schema migration:
+
+```bash
+FLASK_APP=app flask db upgrade
+```
+
+The migration adds progression columns to the existing user table and creates
+activity/play-session tables. It does not delete, reset, or recreate users.
+
+For a disposable local database only, `NEXUS_AUTO_CREATE_DB=1` can be used;
+production should always use `flask db upgrade`.
+
+### Render start command
+
+Run the migration before Gunicorn starts:
+
+```bash
+flask db upgrade && gunicorn --bind 0.0.0.0:$PORT app:app
+```
+
+Keep `SECRET_KEY`, `DATABASE_URL`, `TURNSTILE_SECRET_KEY`,
+`GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET` in Render environment variables.
 Yes — here is a polished **project booklet / web-app resume** for **NEXUS — Play the Edge**. You can paste it into your GitHub `README.md`, portfolio, college project report, LinkedIn project section, or convert it into a PDF later.
 
 Your project is a Flask-based gaming platform with secure authentication, Google OAuth, Cloudflare Turnstile protection, games, community, events, downloads, and a futuristic dark UI. The Phase 1 work should focus only on stabilizing signup, Turnstile, CSRF, profiles, password recovery, and email verification—not later gameplay or monetization features. [github](https://github.com/openai/skills/blob/main/skills/.curated/security-best-practices/references/python-flask-web-server-security.md)
