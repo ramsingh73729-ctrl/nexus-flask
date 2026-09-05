@@ -23,6 +23,10 @@ function getCsrfToken() {
   return document.querySelector('meta[name="csrf-token"]')?.content || "";
 }
 
+function resetSignupTurnstile() {
+  if (window.turnstile?.reset) window.turnstile.reset();
+}
+
 function showAccessToast(message, type = "error") {
   if (!accessToast) return;
   accessToast.textContent = message;
@@ -187,6 +191,7 @@ signupForm?.addEventListener("submit", async (event) => {
     signupSubmit.textContent = "Creating account…";
   }
 
+  let resetTurnstileAfterRequest = false;
   try {
     const response = await fetch("/api/register", {
       method: "POST",
@@ -203,6 +208,7 @@ signupForm?.addEventListener("submit", async (event) => {
       }),
     });
     const result = await response.json().catch(() => ({}));
+    resetTurnstileAfterRequest = result.turnstile_reset === true;
     const message = typeof result.message === "string" && result.message
       ? result.message
       : response.ok
@@ -217,7 +223,7 @@ signupForm?.addEventListener("submit", async (event) => {
   } catch (_error) {
     showAccessToast("Network error. Please try again.", "error");
   } finally {
-    if (window.turnstile?.reset) window.turnstile.reset();
+    if (resetTurnstileAfterRequest) resetSignupTurnstile();
     signupSubmitting = false;
     signupForm.removeAttribute("aria-busy");
     signupSubmit?.removeAttribute("aria-disabled");
