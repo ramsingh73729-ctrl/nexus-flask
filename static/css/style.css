@@ -385,7 +385,7 @@ input:focus-visible {
     }
 }
 
-/* Phase 2: player command center and play zone */
+/* Module 1: player command center and play zone */
 .panel {
     border: 1px solid var(--line);
     background: linear-gradient(135deg, rgba(17, 24, 48, .78), rgba(11, 13, 31, .74));
@@ -498,6 +498,12 @@ input:focus-visible {
 
 .player-badge .eyebrow { color: var(--cyan); }
 .player-badge strong { font-size: 22px; letter-spacing: -.04em; }
+.player-rank {
+    color: var(--pink);
+    font: 10px var(--mono);
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
 .player-badge small { color: var(--muted); overflow-wrap: anywhere; }
 
 .dashboard-grid {
