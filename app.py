@@ -23,6 +23,7 @@ from authlib.integrations.flask_client import OAuth
 from flask_wtf.csrf import generate_csrf, validate_csrf
 from werkzeug.security import generate_password_hash, check_password_hash
 from wtforms.validators import ValidationError
+from sqlalchemy import CheckConstraint, Index, UniqueConstraint, func
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 
@@ -119,6 +120,24 @@ class User(db.Model):
         lazy="dynamic",
         cascade="all, delete-orphan",
     )
+    game_favorites = db.relationship(
+        "GameFavorite",
+        back_populates="user",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+    )
+    game_reviews = db.relationship(
+        "GameReview",
+        back_populates="user",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+    )
+    recent_game_plays = db.relationship(
+        "RecentGamePlay",
+        back_populates="user",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+    )
 
 
 class UserActivity(db.Model):
@@ -165,6 +184,108 @@ class PlaySession(db.Model):
     xp_awarded = db.Column(db.Integer, nullable=False, default=0, server_default="0")
 
     user = db.relationship("User", back_populates="play_sessions")
+
+
+class GameFavorite(db.Model):
+    __tablename__ = "game_favorites"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("user.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    game_slug = db.Column(db.String(80), nullable=False, index=True)
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+        index=True,
+    )
+
+    user = db.relationship("User", back_populates="game_favorites")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "game_slug",
+            name="uq_game_favorites_user_game",
+        ),
+        Index("ix_game_favorites_user_created", "user_id", "created_at"),
+    )
+
+
+class GameReview(db.Model):
+    __tablename__ = "game_reviews"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("user.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    game_slug = db.Column(db.String(80), nullable=False, index=True)
+    rating = db.Column(db.Integer, nullable=False)
+    body = db.Column(db.String(1000), nullable=False, default="", server_default="")
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+        index=True,
+    )
+    updated_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    user = db.relationship("User", back_populates="game_reviews")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "game_slug",
+            name="uq_game_reviews_user_game",
+        ),
+        CheckConstraint(
+            "rating >= 1 AND rating <= 5",
+            name="ck_game_reviews_rating_range",
+        ),
+        Index("ix_game_reviews_game_updated", "game_slug", "updated_at"),
+    )
+
+
+class RecentGamePlay(db.Model):
+    __tablename__ = "recent_game_plays"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("user.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    game_slug = db.Column(db.String(80), nullable=False, index=True)
+    played_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+        index=True,
+    )
+    play_count = db.Column(db.Integer, nullable=False, default=1, server_default="1")
+
+    user = db.relationship("User", back_populates="recent_game_plays")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "game_slug",
+            name="uq_recent_game_plays_user_game",
+        ),
+        Index("ix_recent_game_plays_user_played", "user_id", "played_at"),
+    )
 
 
 # `db.create_all()` is intentionally opt-in. Production schema changes must go
@@ -396,6 +517,307 @@ GAMES = [
     },
 ]
 
+
+# Module 2 keeps the original landing-page catalog intact and layers a small,
+# server-owned discovery catalog on top of it. The catalog is intentionally
+# static for now; player-owned data (favorites, reviews, and recent plays) is
+# stored separately so this module does not require a risky content migration.
+RADAR_GAME_META = {
+    "neon-rift": {
+        "genres": ["Roguelite", "Action"],
+        "tags": ["gravity", "solo", "runs"],
+        "platform": "PC / Cloud",
+        "developer": "NEXUS Originals",
+        "status": "Featured drop",
+        "popularity": 24800,
+        "release_order": 1,
+        "playable": False,
+    },
+    "chroma-run": {
+        "genres": ["Arcade", "Racing"],
+        "tags": ["speed", "neon", "time trials"],
+        "platform": "Browser / PC",
+        "developer": "Luma Circuit",
+        "status": "New season",
+        "popularity": 18200,
+        "release_order": 2,
+        "playable": False,
+    },
+    "void-wraith": {
+        "genres": ["Tactical", "Co-op"],
+        "tags": ["stealth", "squad", "frontier"],
+        "platform": "PC / Console",
+        "developer": "Black Signal Lab",
+        "status": "Squad up",
+        "popularity": 31100,
+        "release_order": 3,
+        "playable": False,
+    },
+    "echo-ops": {
+        "genres": ["Strategy", "PvP"],
+        "tags": ["network", "tactics", "competitive"],
+        "platform": "Browser / PC",
+        "developer": "Echo Division",
+        "status": "Community pick",
+        "popularity": 12400,
+        "release_order": 4,
+        "playable": False,
+    },
+}
+
+NEON_RUNNER_GAME = {
+    "number": "05",
+    "slug": "neon-runner",
+    "title": "NEON RUNNER",
+    "genre": "Arcade / Endless",
+    "genres": ["Arcade", "Endless"],
+    "tags": ["playable", "reflex", "score chase"],
+    "eyebrow": "Playable now",
+    "status": "Playable now",
+    "players": "LIVE",
+    "popularity": 0,
+    "release_order": 5,
+    "description": "Dodge the signal, survive the grid, and lock your best run onto the NEXUS board.",
+    "art_class": "art-rift",
+    "platform": "Browser",
+    "developer": "NEXUS Arcade",
+    "playable": True,
+}
+
+
+def _slug_for_title(title):
+    return {
+        "NEON RIFT": "neon-rift",
+        "CHROMA RUN": "chroma-run",
+        "VOID//WRAITH": "void-wraith",
+        "ECHO OPS": "echo-ops",
+    }.get(title)
+
+
+def build_radar_catalog():
+    catalog = []
+    for game in GAMES:
+        slug = _slug_for_title(game["title"])
+        if not slug or slug not in RADAR_GAME_META:
+            continue
+        item = dict(game)
+        item["slug"] = slug
+        item.update(RADAR_GAME_META[slug])
+        catalog.append(item)
+    catalog.append(dict(NEON_RUNNER_GAME))
+    return catalog
+
+
+RADAR_GAMES = build_radar_catalog()
+RADAR_SORTS = {"newest", "popular", "rated"}
+RADAR_PAGE_SIZE = 6
+RADAR_MAX_PAGE_SIZE = 12
+
+
+def get_radar_game(slug):
+    normalized_slug = str(slug or "").strip().lower()
+    return next(
+        (game for game in RADAR_GAMES if game["slug"] == normalized_slug),
+        None,
+    )
+
+
+def parse_positive_int(value, default, maximum):
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return max(1, min(parsed, maximum))
+
+
+def game_review_stats(slugs=None):
+    query = db.session.query(
+        GameReview.game_slug,
+        func.avg(GameReview.rating),
+        func.count(GameReview.id),
+    ).group_by(GameReview.game_slug)
+    if slugs is not None:
+        safe_slugs = [str(slug) for slug in slugs]
+        if not safe_slugs:
+            return {}
+        query = query.filter(GameReview.game_slug.in_(safe_slugs))
+
+    return {
+        slug: {
+            "rating": round(float(average), 1) if average is not None else None,
+            "rating_count": int(count),
+        }
+        for slug, average, count in query.all()
+    }
+
+
+def favorite_slugs_for_user(user_id):
+    return {
+        row.game_slug
+        for row in GameFavorite.query.with_entities(GameFavorite.game_slug)
+        .filter_by(user_id=user_id)
+        .all()
+    }
+
+
+def radar_game_payload(game, review_stats=None, favorite=False):
+    stats = (review_stats or {}).get(game["slug"], {})
+    return {
+        "number": game["number"],
+        "slug": game["slug"],
+        "title": game["title"],
+        "genre": game["genre"],
+        "genres": list(game["genres"]),
+        "tags": list(game["tags"]),
+        "eyebrow": game["eyebrow"],
+        "status": game["status"],
+        "players": game["players"],
+        "description": game["description"],
+        "art_class": game["art_class"],
+        "platform": game["platform"],
+        "developer": game["developer"],
+        "playable": bool(game["playable"]),
+        "rating": stats.get("rating"),
+        "rating_count": stats.get("rating_count", 0),
+        "is_favorite": bool(favorite),
+    }
+
+
+def radar_listing(query_text="", genre="", sort="newest", page=1, per_page=RADAR_PAGE_SIZE, user_id=None):
+    safe_query = str(query_text or "").strip()[:80]
+    safe_genre = str(genre or "").strip()[:40]
+    safe_sort = str(sort or "newest").strip().lower()
+    if safe_sort not in RADAR_SORTS:
+        safe_sort = "newest"
+
+    filtered = []
+    query_casefolded = safe_query.casefold()
+    genre_casefolded = safe_genre.casefold()
+    for game in RADAR_GAMES:
+        searchable = " ".join(
+            [game["title"], game["genre"], *game["genres"], *game["tags"]]
+        ).casefold()
+        if query_casefolded and query_casefolded not in searchable:
+            continue
+        if genre_casefolded and genre_casefolded not in {
+            item.casefold() for item in game["genres"]
+        }:
+            continue
+        filtered.append(game)
+
+    review_stats = game_review_stats(game["slug"] for game in filtered)
+    if safe_sort == "popular":
+        filtered.sort(key=lambda game: game["popularity"], reverse=True)
+    elif safe_sort == "rated":
+        filtered.sort(
+            key=lambda game: (
+                review_stats.get(game["slug"], {}).get("rating") is not None,
+                review_stats.get(game["slug"], {}).get("rating", -1),
+                review_stats.get(game["slug"], {}).get("rating_count", 0),
+                game["release_order"],
+            ),
+            reverse=True,
+        )
+    else:
+        filtered.sort(key=lambda game: game["release_order"], reverse=True)
+
+    total = len(filtered)
+    total_pages = max(1, (total + per_page - 1) // per_page)
+    safe_page = max(1, min(int(page), total_pages))
+    start = (safe_page - 1) * per_page
+    page_games = filtered[start : start + per_page]
+    favorite_slugs = favorite_slugs_for_user(user_id) if user_id else set()
+    return {
+        "games": [
+            radar_game_payload(
+                game,
+                review_stats,
+                favorite=game["slug"] in favorite_slugs,
+            )
+            for game in page_games
+        ],
+        "pagination": {
+            "page": safe_page,
+            "per_page": per_page,
+            "total": total,
+            "total_pages": total_pages if total else 0,
+        },
+        "query": safe_query,
+        "genre": safe_genre,
+        "sort": safe_sort,
+    }
+
+
+def review_payload(review):
+    return {
+        "id": review.id,
+        "name": review.user.name if review.user else "NEXUS player",
+        "rating": review.rating,
+        "body": review.body,
+        "created_at": review.updated_at.isoformat(),
+    }
+
+
+def recent_game_payload(row, review_stats=None):
+    game = get_radar_game(row.game_slug)
+    if not game:
+        return None
+    payload = radar_game_payload(game, review_stats)
+    payload["played_at"] = row.played_at.isoformat()
+    payload["play_count"] = row.play_count
+    return payload
+
+
+def radar_library_payload(user_id, favorite_limit=6, recent_limit=6):
+    stats = game_review_stats()
+    favorite_query = GameFavorite.query.filter_by(user_id=user_id)
+    favorites = (
+        favorite_query
+        .order_by(GameFavorite.created_at.desc())
+        .limit(favorite_limit)
+        .all()
+    )
+    recent_rows = (
+        RecentGamePlay.query
+        .filter_by(user_id=user_id)
+        .order_by(RecentGamePlay.played_at.desc())
+        .limit(recent_limit)
+        .all()
+    )
+    return {
+        "favorite_count": favorite_query.count(),
+        "favorites": [
+            radar_game_payload(get_radar_game(row.game_slug), stats, favorite=True)
+            for row in favorites
+            if get_radar_game(row.game_slug)
+        ],
+        "recently_played": [
+            payload
+            for row in recent_rows
+            if (payload := recent_game_payload(row, stats)) is not None
+        ],
+    }
+
+
+def touch_recent_game(user_id, game_slug):
+    if not get_radar_game(game_slug):
+        return
+    row = RecentGamePlay.query.filter_by(
+        user_id=user_id,
+        game_slug=game_slug,
+    ).first()
+    if row:
+        row.played_at = utc_now()
+        row.play_count = min(row.play_count + 1, 2_147_483_647)
+        return
+    db.session.add(
+        RecentGamePlay(
+            user_id=user_id,
+            game_slug=game_slug,
+            played_at=utc_now(),
+        )
+    )
+
 CONTACTS = []
 DOWNLOADS = 0
 
@@ -421,6 +843,7 @@ def dashboard():
         .all()
     )
     today = utc_now().date()
+    library = radar_library_payload(user.id)
     return render_template(
         "dashboard.html",
         user=user,
@@ -428,6 +851,9 @@ def dashboard():
         leaderboard=leaderboard_payload(limit=5),
         reward_available=user.last_reward_claimed_date != today,
         rank=rank_for_xp(user.total_xp),
+        favorite_count=library["favorite_count"],
+        favorite_games=library["favorites"],
+        recently_played=library["recently_played"],
     )
 
 
@@ -458,6 +884,7 @@ def dashboard_api():
         .limit(8)
         .all()
     )
+    library = radar_library_payload(user.id)
     return jsonify(
         ok=True,
         user=user_payload(user),
@@ -472,6 +899,9 @@ def dashboard_api():
         ],
         leaderboard=leaderboard_payload(limit=5),
         reward_available=user.last_reward_claimed_date != utc_now().date(),
+        favorite_count=library["favorite_count"],
+        favorites=library["favorites"],
+        recently_played=library["recently_played"],
     )
 
 
@@ -481,6 +911,298 @@ def leaderboard_api():
     if game != "neon-runner":
         return jsonify(ok=False, message="Leaderboard is not available for this game."), 404
     return jsonify(ok=True, game=game, entries=leaderboard_payload(limit=10))
+
+
+@app.get("/games")
+def game_radar():
+    user = current_user()
+    listing = radar_listing(
+        query_text=request.args.get("q", ""),
+        genre=request.args.get("genre", ""),
+        sort=request.args.get("sort", "newest"),
+        page=parse_positive_int(request.args.get("page"), 1, 10_000),
+        per_page=RADAR_PAGE_SIZE,
+        user_id=user.id if user else None,
+    )
+    genres = sorted(
+        {
+            genre_name
+            for game in RADAR_GAMES
+            for genre_name in game["genres"]
+        }
+    )
+    return render_template(
+        "game_radar.html",
+        games=listing["games"],
+        pagination=listing["pagination"],
+        query=listing["query"],
+        selected_genre=listing["genre"],
+        selected_sort=listing["sort"],
+        genres=genres,
+    )
+
+
+@app.get("/games/<slug>")
+def game_detail(slug):
+    game = get_radar_game(slug)
+    if not game:
+        return render_template("game_not_found.html", slug=slug), 404
+
+    user = current_user()
+    stats = game_review_stats([game["slug"]])
+    reviews = (
+        GameReview.query
+        .filter_by(game_slug=game["slug"])
+        .order_by(GameReview.updated_at.desc())
+        .limit(20)
+        .all()
+    )
+    related = [
+        radar_game_payload(other, game_review_stats([other["slug"]]))
+        for other in RADAR_GAMES
+        if other["slug"] != game["slug"]
+        and set(other["genres"]).intersection(game["genres"])
+    ][:3]
+    user_review = None
+    is_favorite = False
+    if user:
+        user_review = GameReview.query.filter_by(
+            user_id=user.id,
+            game_slug=game["slug"],
+        ).first()
+        is_favorite = GameFavorite.query.filter_by(
+            user_id=user.id,
+            game_slug=game["slug"],
+        ).first() is not None
+
+    return render_template(
+        "game_detail.html",
+        game=radar_game_payload(game, stats, favorite=is_favorite),
+        reviews=reviews,
+        related_games=related,
+        user_review=user_review,
+        is_favorite=is_favorite,
+    )
+
+
+@app.get("/api/radar/games")
+def radar_games_api():
+    user = current_user()
+    listing = radar_listing(
+        query_text=request.args.get("q", ""),
+        genre=request.args.get("genre", ""),
+        sort=request.args.get("sort", "newest"),
+        page=parse_positive_int(request.args.get("page"), 1, 10_000),
+        per_page=parse_positive_int(
+            request.args.get("per_page"),
+            RADAR_PAGE_SIZE,
+            RADAR_MAX_PAGE_SIZE,
+        ),
+        user_id=user.id if user else None,
+    )
+    return jsonify(ok=True, **listing)
+
+
+@app.get("/api/games/<slug>")
+def game_detail_api(slug):
+    game = get_radar_game(slug)
+    if not game:
+        return jsonify(ok=False, message="Game signal not found."), 404
+
+    user = current_user()
+    stats = game_review_stats([game["slug"]])
+    reviews = (
+        GameReview.query
+        .filter_by(game_slug=game["slug"])
+        .order_by(GameReview.updated_at.desc())
+        .limit(20)
+        .all()
+    )
+    favorite = bool(
+        user
+        and GameFavorite.query.filter_by(
+            user_id=user.id,
+            game_slug=game["slug"],
+        ).first()
+    )
+    return jsonify(
+        ok=True,
+        game=radar_game_payload(game, stats, favorite=favorite),
+        reviews=[review_payload(review) for review in reviews],
+    )
+
+
+@app.get("/api/library")
+@login_required
+def library_api():
+    user = current_user()
+    return jsonify(ok=True, **radar_library_payload(user.id))
+
+
+@app.route("/api/games/<slug>/favorite", methods=["POST", "DELETE"])
+@login_required
+@browser_csrf_protected
+def game_favorite_api(slug):
+    game = get_radar_game(slug)
+    if not game:
+        return jsonify(ok=False, message="Game signal not found."), 404
+
+    user = current_user()
+    favorite = GameFavorite.query.filter_by(
+        user_id=user.id,
+        game_slug=game["slug"],
+    ).first()
+
+    if request.method == "DELETE":
+        if favorite:
+            db.session.delete(favorite)
+            try:
+                db.session.commit()
+            except SQLAlchemyError as error:
+                db.session.rollback()
+                app.logger.error(
+                    "Favorite removal failed: %s",
+                    error.__class__.__name__,
+                )
+                return jsonify(
+                    ok=False,
+                    message="Your vault could not be updated right now.",
+                ), 503
+        return jsonify(
+            ok=True,
+            favorite=False,
+            message="Removed from your vault.",
+        )
+
+    if favorite:
+        return jsonify(
+            ok=True,
+            favorite=True,
+            message="Already in your vault.",
+        )
+
+    db.session.add(GameFavorite(user_id=user.id, game_slug=game["slug"]))
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify(
+            ok=True,
+            favorite=True,
+            message="Already in your vault.",
+        )
+    except SQLAlchemyError as error:
+        db.session.rollback()
+        app.logger.error(
+            "Favorite save failed: %s",
+            error.__class__.__name__,
+        )
+        return jsonify(
+            ok=False,
+            message="Your vault could not be updated right now.",
+        ), 503
+
+    return jsonify(
+        ok=True,
+        favorite=True,
+        message="Saved to your NEXUS vault.",
+    ), 201
+
+
+@app.route("/api/games/<slug>/review", methods=["POST", "PUT", "DELETE"])
+@login_required
+@browser_csrf_protected
+def game_review_api(slug):
+    game = get_radar_game(slug)
+    if not game:
+        return jsonify(ok=False, message="Game signal not found."), 404
+
+    user = current_user()
+    review = GameReview.query.filter_by(
+        user_id=user.id,
+        game_slug=game["slug"],
+    ).first()
+
+    if request.method == "DELETE":
+        if review:
+            db.session.delete(review)
+            try:
+                db.session.commit()
+            except SQLAlchemyError as error:
+                db.session.rollback()
+                app.logger.error(
+                    "Review removal failed: %s",
+                    error.__class__.__name__,
+                )
+                return jsonify(
+                    ok=False,
+                    message="Your review could not be removed right now.",
+                ), 503
+        return jsonify(ok=True, review=None, message="Review removed.")
+
+    data = request.get_json(silent=True) or {}
+    raw_rating = data.get("rating")
+    if isinstance(raw_rating, bool) or raw_rating is None:
+        return jsonify(ok=False, message="Choose a rating from 1 to 5."), 400
+    if isinstance(raw_rating, float) and not raw_rating.is_integer():
+        return jsonify(ok=False, message="Choose a rating from 1 to 5."), 400
+    try:
+        rating = int(raw_rating)
+    except (TypeError, ValueError):
+        return jsonify(ok=False, message="Choose a rating from 1 to 5."), 400
+    if rating < 1 or rating > 5:
+        return jsonify(ok=False, message="Choose a rating from 1 to 5."), 400
+
+    raw_body = data.get("body", "")
+    if raw_body is None:
+        raw_body = ""
+    if not isinstance(raw_body, str):
+        return jsonify(ok=False, message="Review text is invalid."), 400
+    body = raw_body.strip()
+    if len(body) > 1000:
+        return jsonify(ok=False, message="Review must be 1,000 characters or less."), 400
+
+    created = review is None
+    if review is None:
+        review = GameReview(
+            user_id=user.id,
+            game_slug=game["slug"],
+            rating=rating,
+            body=body,
+        )
+        db.session.add(review)
+    else:
+        review.rating = rating
+        review.body = body
+        review.updated_at = utc_now()
+
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify(
+            ok=False,
+            message="Your review changed at the same time. Please try again.",
+        ), 409
+    except SQLAlchemyError as error:
+        db.session.rollback()
+        app.logger.error(
+            "Review save failed: %s",
+            error.__class__.__name__,
+        )
+        return jsonify(
+            ok=False,
+            message="Your review could not be saved right now.",
+        ), 503
+
+    stats = game_review_stats([game["slug"]])
+    return jsonify(
+        ok=True,
+        review=review_payload(review),
+        rating=stats.get(game["slug"], {}).get("rating"),
+        rating_count=stats.get(game["slug"], {}).get("rating_count", 0),
+        message="Your signal is live on this game page.",
+    ), (201 if created else 200)
 
 
 
@@ -864,6 +1586,7 @@ def submit_neon_runner_score():
             idempotency_key=f"play-session:{play_session.id}",
         )
     )
+    touch_recent_game(user.id, "neon-runner")
     try:
         db.session.commit()
     except IntegrityError:
