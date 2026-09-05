@@ -29,10 +29,18 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024
 
-app.config["SECRET_KEY"] = os.environ.get(
-    "SECRET_KEY",
-    "dev-secret-change-this"
-)
+running_on_render = os.environ.get("RENDER", "").lower() in {
+    "1",
+    "true",
+    "yes",
+}
+is_production = os.environ.get("FLASK_ENV") == "production"
+configured_secret_key = os.environ.get("SECRET_KEY", "").strip()
+if not configured_secret_key:
+    if is_production or running_on_render:
+        raise RuntimeError("SECRET_KEY must be configured in the environment.")
+    configured_secret_key = secrets.token_urlsafe(32)
+app.config["SECRET_KEY"] = configured_secret_key
 
 database_url = os.environ.get("DATABASE_URL", "sqlite:///nexus.db")
 
@@ -85,7 +93,7 @@ class User(db.Model):
         default=lambda: datetime.now(timezone.utc)
     )
 
-    # Phase 2 progression fields. They are added through the migration in
+    # Module 1 progression fields. They are added through the migration in
     # migrations/versions; defaults keep new players at a safe baseline.
     avatar_url = db.Column(db.String(500), nullable=True)
     total_xp = db.Column(db.Integer, nullable=False, default=0, server_default="0")
@@ -161,7 +169,11 @@ class PlaySession(db.Model):
 
 # `db.create_all()` is intentionally opt-in. Production schema changes must go
 # through `flask db upgrade`; local throwaway development can opt in explicitly.
-if os.environ.get("NEXUS_AUTO_CREATE_DB", "").lower() in {"1", "true", "yes"}:
+if (
+    os.environ.get("NEXUS_AUTO_CREATE_DB", "").lower() in {"1", "true", "yes"}
+    and not is_production
+    and not running_on_render
+):
     with app.app_context():
         db.create_all()
 oauth.register(
@@ -187,7 +199,6 @@ TURNSTILE_UNAVAILABLE_MESSAGE = (
 CSRF_FAILURE_MESSAGE = "Your session expired. Refresh the page and try again."
 TURNSTILE_SITE_KEY = (
     os.environ.get("TURNSTILE_SITE_KEY", "").strip()
-    or "0x4AAAAAAEl9v-qNLaxBlT3A"
 )
 
 
@@ -264,6 +275,26 @@ def level_for_xp(total_xp):
     return (max(0, int(total_xp)) // 100) + 1
 
 
+RANK_TIERS = (
+    (0, "Recruit"),
+    (250, "Scout"),
+    (750, "Vanguard"),
+    (1_500, "Elite"),
+    (3_000, "Arena Legend"),
+    (6_000, "Nexus Master"),
+)
+
+
+def rank_for_xp(total_xp):
+    safe_xp = max(0, int(total_xp))
+    rank = RANK_TIERS[0][1]
+    for threshold, title in RANK_TIERS:
+        if safe_xp < threshold:
+            break
+        rank = title
+    return rank
+
+
 def update_login_streak(user):
     today = utc_now().date()
     if user.last_activity_date == today:
@@ -285,6 +316,7 @@ def user_payload(user):
         "avatar_url": user.avatar_url,
         "total_xp": user.total_xp,
         "level": user.level,
+        "rank": rank_for_xp(user.total_xp),
         "current_login_streak": user.current_login_streak,
     }
 
@@ -395,6 +427,7 @@ def dashboard():
         activities=activities,
         leaderboard=leaderboard_payload(limit=5),
         reward_available=user.last_reward_claimed_date != today,
+        rank=rank_for_xp(user.total_xp),
     )
 
 
@@ -502,6 +535,9 @@ def api_signup():
     if not name or not email or not password or not confirm_password:
         return jsonify(ok=False, message="All fields are required."), 400
 
+    if len(name) > 120 or len(email) > 255:
+        return jsonify(ok=False, message="Name or email is too long."), 400
+
     if "@" not in email:
         return jsonify(ok=False, message="Enter a valid email."), 400
 
@@ -510,6 +546,9 @@ def api_signup():
 
     if len(password) < 8:
         return jsonify(ok=False, message="Password must be at least 8 characters."), 400
+
+    if len(password) > 128:
+        return jsonify(ok=False, message="Password is too long."), 400
 
     secret = os.environ.get("TURNSTILE_SECRET_KEY", "").strip()
 
@@ -541,6 +580,10 @@ def api_signup():
         app.logger.warning("Turnstile Siteverify returned invalid JSON")
         return jsonify(ok=False, message=TURNSTILE_UNAVAILABLE_MESSAGE), 502
 
+    if not isinstance(verification, dict):
+        app.logger.warning("Turnstile Siteverify returned an unexpected payload")
+        return jsonify(ok=False, message=TURNSTILE_UNAVAILABLE_MESSAGE), 502
+
     if not verification.get("success"):
         error_codes = verification.get("error-codes") or []
         safe_codes = ", ".join(str(code) for code in error_codes[:5])
@@ -548,10 +591,18 @@ def api_signup():
             "Turnstile rejected signup token: %s",
             safe_codes or "unknown",
         )
-        return jsonify(ok=False, message=TURNSTILE_FAILURE_MESSAGE), 400
+        return jsonify(
+            ok=False,
+            message=TURNSTILE_FAILURE_MESSAGE,
+            turnstile_reset=True,
+        ), 400
 
     if User.query.filter_by(email=email).first():
-        return jsonify(ok=False, message="Account already exists."), 409
+        return jsonify(
+            ok=False,
+            message="Account already exists.",
+            turnstile_reset=True,
+        ), 409
 
     user = User(
         name=name,
@@ -560,11 +611,31 @@ def api_signup():
     )
 
     db.session.add(user)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify(
+            ok=False,
+            message="Account already exists.",
+            turnstile_reset=True,
+        ), 409
+    except SQLAlchemyError as error:
+        db.session.rollback()
+        app.logger.error(
+            "Signup database write failed: %s",
+            error.__class__.__name__,
+        )
+        return jsonify(
+            ok=False,
+            message="Account could not be created right now. Please try again.",
+            turnstile_reset=True,
+        ), 503
 
     return jsonify(
         ok=True,
-        message="Account created successfully."
+        message="Account created successfully.",
+        turnstile_reset=True,
     ), 201
 
 
@@ -604,6 +675,18 @@ def api_login():
 @browser_csrf_protected
 def daily_reward():
     user = current_user()
+    # Serialize claims on databases that support row-level locks. The unique
+    # activity key below remains the idempotency backstop for SQLite and races
+    # that reach the database at the same time.
+    user = (
+        db.session.query(User)
+        .filter_by(id=user.id)
+        .with_for_update()
+        .first()
+    )
+    if user is None:
+        session.pop("user_id", None)
+        return jsonify(ok=False, message="Please log in to continue."), 401
     today = utc_now().date()
 
     if user.last_reward_claimed_date == today:
@@ -636,6 +719,8 @@ def daily_reward():
         # claimed reward rather than awarding XP twice.
         db.session.rollback()
         user = current_user()
+        if user is None:
+            return jsonify(ok=False, message="Please log in to continue."), 401
         return jsonify(
             ok=True,
             claimed=False,
@@ -667,7 +752,18 @@ def start_neon_runner():
         expires_at=expires_at,
     )
     db.session.add(play_session)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except SQLAlchemyError as error:
+        db.session.rollback()
+        app.logger.error(
+            "Play session creation failed: %s",
+            error.__class__.__name__,
+        )
+        return jsonify(
+            ok=False,
+            message="A secure run could not be started right now. Please try again.",
+        ), 503
 
     return jsonify(
         ok=True,
@@ -689,6 +785,12 @@ def submit_neon_runner_score():
     if not token or isinstance(raw_score, bool):
         return jsonify(ok=False, message="This game session is invalid."), 400
 
+    if not isinstance(raw_score, (int, float, str)):
+        return jsonify(ok=False, message="This score is invalid."), 400
+
+    if isinstance(raw_score, float) and not raw_score.is_integer():
+        return jsonify(ok=False, message="This score is invalid."), 400
+
     try:
         submitted_score = int(raw_score)
     except (TypeError, ValueError):
@@ -704,6 +806,7 @@ def submit_neon_runner_score():
             game_slug="neon-runner",
             session_token_hash=hash_play_token(token),
         )
+        .with_for_update()
         .first()
     )
     if play_session is None:
@@ -719,7 +822,18 @@ def submit_neon_runner_score():
     if now > aware_utc(play_session.expires_at):
         play_session.status = "expired"
         play_session.ended_at = now
-        db.session.commit()
+        try:
+            db.session.commit()
+        except SQLAlchemyError as error:
+            db.session.rollback()
+            app.logger.error(
+                "Expired play session update failed: %s",
+                error.__class__.__name__,
+            )
+            return jsonify(
+                ok=False,
+                message="This run could not be checked right now. Please try again.",
+            ), 503
         return jsonify(
             ok=False,
             message="This run expired. Start a new run to try again."
@@ -727,8 +841,7 @@ def submit_neon_runner_score():
 
     elapsed_seconds = max(
         0,
-        (aware_utc(play_session.expires_at) - aware_utc(play_session.started_at)).total_seconds()
-        - (aware_utc(play_session.expires_at) - now).total_seconds(),
+        (now - aware_utc(play_session.started_at)).total_seconds(),
     )
     max_plausible_score = max(200, int(elapsed_seconds * 180) + 200)
     if submitted_score > max_plausible_score:
@@ -751,7 +864,24 @@ def submit_neon_runner_score():
             idempotency_key=f"play-session:{play_session.id}",
         )
     )
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify(
+            ok=False,
+            message="This run has already been submitted.",
+        ), 409
+    except SQLAlchemyError as error:
+        db.session.rollback()
+        app.logger.error(
+            "Score database write failed: %s",
+            error.__class__.__name__,
+        )
+        return jsonify(
+            ok=False,
+            message="This score could not be saved right now. Please try again.",
+        ), 503
 
     return jsonify(
         ok=True,
