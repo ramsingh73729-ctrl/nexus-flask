@@ -27,9 +27,9 @@ Open `http://127.0.0.1:5000`.
 
 Flask is the backend and template renderer. Player pages reuse the same NEXUS design tokens and load one shared `static/js/main.js` plus one page-specific script.
 
-## Phase 2: Player dashboard and Play Zone
+## Module 1: Player Command Center and Neon Runner
 
-The active Phase 2 flow adds a protected player command center and the first
+The active Module 1 flow adds a protected player command center and the first
 playable experience without changing the existing landing page or authentication
 model:
 
@@ -67,8 +67,32 @@ Run the migration before Gunicorn starts:
 flask db upgrade && gunicorn --bind 0.0.0.0:$PORT app:app
 ```
 
-Keep `SECRET_KEY`, `DATABASE_URL`, `TURNSTILE_SECRET_KEY`,
+Keep `SECRET_KEY`, `DATABASE_URL`, `TURNSTILE_SECRET_KEY`, `TURNSTILE_SITE_KEY`,
 `GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET` in Render environment variables.
+
+## Game Radar and My Game Vault
+
+The next approved module adds a focused discovery and collection experience while
+leaving the original `/api/games` response unchanged:
+
+- `/games` — searchable, filterable, sortable catalog with pagination.
+- `/games/<slug>` — game details, related signals, aggregate ratings, and reviews.
+- `/api/radar/games` and `/api/games/<slug>` — discovery JSON endpoints.
+- `/api/games/<slug>/favorite` — idempotent save/remove actions for signed-in players.
+- `/api/library` — saved games and recently played summaries for the dashboard.
+- `/api/games/<slug>/review` — one validated review per signed-in player and game.
+
+The catalog is server-owned for this module. Only the existing Neon Runner is
+playable; game uploads, social posts, tournaments, payments, and admin tooling
+remain intentionally out of scope.
+
+The `20260905_game_radar` migration creates only the new favorites, reviews, and
+recent-play tables. It preserves existing users, progression, sessions, and game
+data. Apply it with the same Render start command or with:
+
+```bash
+FLASK_APP=app flask db upgrade
+```
 Yes — here is a polished **project booklet / web-app resume** for **NEXUS — Play the Edge**. You can paste it into your GitHub `README.md`, portfolio, college project report, LinkedIn project section, or convert it into a PDF later.
 
 Your project is a Flask-based gaming platform with secure authentication, Google OAuth, Cloudflare Turnstile protection, games, community, events, downloads, and a futuristic dark UI. The Phase 1 work should focus only on stabilizing signup, Turnstile, CSRF, profiles, password recovery, and email verification—not later gameplay or monetization features. [github](https://github.com/openai/skills/blob/main/skills/.curated/security-best-practices/references/python-flask-web-server-security.md)
@@ -469,7 +493,7 @@ Security: Password hashing, Google OAuth, Cloudflare Turnstile
 UI Style: Futuristic dark gaming interface
 Purpose: Game discovery, community, competition, player growth
 Status: Active development
-Current Focus: Phase 1 — Foundation and Security
+Current Focus: Game Radar and My Game Vault (next approved module)
 ```
 
 ***
