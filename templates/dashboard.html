@@ -11,7 +11,7 @@
       <h1>Welcome back,<br /><em>{{ user.name }}</em></h1>
       <p class="dashboard-lede">Your next run is waiting on the edge. Track your signal, claim today’s reward, and keep moving.</p>
       <div class="dashboard-actions">
-        <a class="button button-primary" href="{{ url_for('neon_runner') }}">Play Neon Runner <span>↗</span></a>
+        <a class="button button-primary" href="{{ url_for('neon_runner') }}">Continue playing <span>↗</span></a>
         <a class="button button-ghost" href="{{ url_for('home') }}#games">Explore worlds <span>↗</span></a>
       </div>
     </div>
@@ -25,6 +25,7 @@
       </div>
       <span class="eyebrow">ONLINE / PLAYER</span>
       <strong id="dashboardLevel">LVL {{ user.level }}</strong>
+      <span class="player-rank" id="dashboardRank">{{ rank }}</span>
       <small>{{ user.email }}</small>
     </div>
   </div>

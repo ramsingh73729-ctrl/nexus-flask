@@ -1,4 +1,4 @@
-"""Add player progression and Neon Runner session tables.
+"""Add Module 1 player progression and Neon Runner session tables.
 
 Revision ID: 20260904_phase2
 Revises:
@@ -14,12 +14,20 @@ branch_labels = None
 depends_on = None
 
 
-def _user_table(bind):
+def _user_table(bind, *, create_if_missing=False):
     tables = inspect(bind).get_table_names()
     if "user" in tables:
         return "user"
     if "users" in tables:
-        return "users"
+        # The active application model uses the singular `user` table. Do not
+        # silently attach new foreign keys to a legacy table with an unknown
+        # schema or rename it without an explicit data migration.
+        raise RuntimeError(
+            "Legacy 'users' table found; migration stopped to protect existing data."
+        )
+
+    if not create_if_missing:
+        return None
 
     # The first deployment used an opt-in db.create_all() and therefore some
     # Render databases have no schema yet. Create the current user table only
@@ -43,16 +51,15 @@ def _user_table(bind):
         ),
         sa.Column("last_activity_date", sa.Date(), nullable=True),
         sa.Column("last_reward_claimed_date", sa.Date(), nullable=True),
-        sa.UniqueConstraint("email", name="uq_user_email"),
         sa.UniqueConstraint("google_id", name="uq_user_google_id"),
     )
-    op.create_index("ix_user_email", "user", ["email"], unique=False)
+    op.create_index("ix_user_email", "user", ["email"], unique=True)
     return "user"
 
 
 def upgrade():
     bind = op.get_bind()
-    user_table = _user_table(bind)
+    user_table = _user_table(bind, create_if_missing=True)
     user_columns = {column["name"] for column in inspect(bind).get_columns(user_table)}
 
     new_user_columns = [
@@ -119,6 +126,8 @@ def downgrade():
         op.drop_table("user_activities")
 
     user_table = _user_table(bind)
+    if user_table is None:
+        return
     user_columns = {column["name"] for column in inspect(bind).get_columns(user_table)}
     for column_name in (
         "last_reward_claimed_date",

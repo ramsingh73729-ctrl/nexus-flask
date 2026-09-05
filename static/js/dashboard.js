@@ -38,6 +38,7 @@
     const values = {
       dashboardLevel: `LVL ${level}`,
       dashboardLevelLine: `LEVEL ${level}`,
+      dashboardRank: user.rank || "Recruit",
       dashboardXp: `${totalXp} TOTAL XP`,
       dashboardTotalXp: String(totalXp),
       dashboardStreak: String(Number(user.current_login_streak) || 0),

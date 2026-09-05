@@ -71,22 +71,22 @@
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
           <div class="login-field">
             <label for="signupName">Name</label>
-            <input id="signupName" name="name" type="text" autocomplete="name" required>
+            <input id="signupName" name="name" type="text" autocomplete="name" maxlength="120" required>
           </div>
 
           <div class="login-field">
             <label for="signupEmail">Email</label>
-            <input id="signupEmail" name="email" type="email" autocomplete="email" required>
+            <input id="signupEmail" name="email" type="email" autocomplete="email" maxlength="255" required>
           </div>
 
           <div class="login-field">
             <label for="signupPassword">Password</label>
-            <input id="signupPassword" name="password" type="password" autocomplete="new-password" required>
+            <input id="signupPassword" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required>
           </div>
 
           <div class="login-field">
             <label for="signupConfirm">Confirm password</label>
-            <input id="signupConfirm" name="confirm_password" type="password" autocomplete="new-password" required>
+            <input id="signupConfirm" name="confirm_password" type="password" autocomplete="new-password" minlength="8" maxlength="128" required>
           </div>
 
           <div class="cf-turnstile" id="signupTurnstile"
@@ -111,8 +111,8 @@
           <a class="logo" href="#top" aria-label="Nexus home"><span class="logo-mark"><i></i><i></i><i></i></span><span>NEXUS<span class="logo-muted"> // PLAY</span></span></a>
           <div class="nav-links" id="nav-links"><a href="#games">Games</a><a href="#community">Community</a><a href="#events">Events <span class="nav-dot"></span></a></div>
           <div class="nav-actions">
+            <a class="button button-small button-outline" href="{{ url_for('dashboard') }}">Dashboard <span>↗</span></a>
             {% if current_user %}
-              <a class="button button-small button-outline" href="{{ url_for('dashboard') }}">Dashboard <span>↗</span></a>
               <a class="login-button" href="{{ url_for('logout') }}">Log out</a>
             {% else %}
               <button class="login-button" id="openLogin" type="button">Log in</button>
